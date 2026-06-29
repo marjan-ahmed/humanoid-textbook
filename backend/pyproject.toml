@@ -1,0 +1,21 @@
+[project]
+name = "rag-backend"
+version = "0.1.0"
+description = "RAG backend for the Physical AI textbook"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi[standard]",
+  "openai-agents",
+  "qdrant-client",
+  "openai",
+  "cohere",
+  "python-dotenv",
+  "uuid>=1.30",
+]
+
+[tool.uv]
+dev-dependencies = []
+
+[tool.pytest.ini_options]
+addopts = "-q"
+
