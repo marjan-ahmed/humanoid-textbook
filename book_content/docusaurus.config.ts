@@ -1,4 +1,4 @@
-ï»¿import {themes as prismThemes} from 'prism-react-renderer';
+import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
@@ -29,6 +29,13 @@ const config: Config = {
     },
   ],
 
+
+  scripts: [
+    {
+      src: 'https://cdn.platform.openai.com/deployments/chatkit/chatkit.js',
+      async: true,
+    },
+  ],
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -79,7 +86,7 @@ const config: Config = {
       },
       {
         property: 'og:title',
-        content: 'Physical AI & Humanoid Robotics Textbook â€” AI-Native Field Manual',
+        content: 'Physical AI & Humanoid Robotics Textbook — AI-Native Field Manual',
       },
       {
         property: 'og:description',
@@ -108,7 +115,7 @@ const config: Config = {
       },
       {
         name: 'twitter:title',
-        content: 'Physical AI & Humanoid Robotics Textbook â€” AI-Native Field Manual',
+        content: 'Physical AI & Humanoid Robotics Textbook — AI-Native Field Manual',
       },
       {
         name: 'twitter:description',
@@ -191,6 +198,7 @@ const config: Config = {
 };
 
 export default config;
+
 
 
 

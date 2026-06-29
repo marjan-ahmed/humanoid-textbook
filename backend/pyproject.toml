@@ -6,11 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
   "fastapi[standard]",
   "openai-agents",
+  "openai-chatkit<=1.4.0",
   "qdrant-client",
   "openai",
   "cohere",
   "python-dotenv",
-  "uuid>=1.30",
 ]
 
 [tool.uv]
@@ -18,4 +18,3 @@ dev-dependencies = []
 
 [tool.pytest.ini_options]
 addopts = "-q"
-
