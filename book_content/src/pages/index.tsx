@@ -1,6 +1,7 @@
 import type {ReactNode} from 'react';
 import {useEffect, useRef} from 'react';
 import Link from '@docusaurus/Link';
+import Head from '@docusaurus/Head';
 import Layout from '@theme/Layout';
 
 import styles from './index.module.css';
@@ -195,7 +196,50 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title="Physical AI & Humanoid Robotics Textbook"
-      description="An AI-native textbook for learning Physical AI, ROS 2, Gazebo, Unity, NVIDIA Isaac, VLA systems, and autonomous humanoid robotics.">
+      description="An AI-native textbook for learning Physical AI, ROS 2, Gazebo, Unity, NVIDIA Isaac, VLA systems, and autonomous humanoid robotics. 13-week structured course from embodied foundations to simulated humanoid deployment.">
+      <Head>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Course',
+            name: 'Physical AI & Humanoid Robotics Textbook',
+            description:
+              'A comprehensive AI-native textbook for Physical AI, Humanoid Robotics, ROS 2, Gazebo, Unity, NVIDIA Isaac, Vision-Language-Action systems, and autonomous humanoid capstone projects.',
+            provider: {
+              '@type': 'Organization',
+              name: 'Physical AI Textbook',
+              url: 'https://marjan-ahmed.github.io/humanoid-textbook/',
+            },
+            url: 'https://marjan-ahmed.github.io/humanoid-textbook/',
+            inLanguage: 'en',
+            educationalLevel: 'Advanced',
+            timeRequired: 'P13W',
+            numberOfCredits: 7,
+            hasCourseInstance: {
+              '@type': 'CourseInstance',
+              courseMode: 'online',
+              courseWorkload: 'P13W',
+            },
+            about: [
+              'Physical AI',
+              'Humanoid Robotics',
+              'ROS 2',
+              'Gazebo',
+              'Unity',
+              'NVIDIA Isaac',
+              'Vision-Language-Action',
+              'Embodied Intelligence',
+            ],
+            author: {
+              '@type': 'Person',
+              name: 'Marjan Ahmed',
+            },
+          })}
+        </script>
+        <meta property="og:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.png" />
+        <meta name="twitter:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.png" />
+        <link rel="canonical" href="https://marjan-ahmed.github.io/humanoid-textbook/" />
+      </Head>
       <main className={styles.pageShell}>
         <section className={styles.hero}>
           <BlueprintFigure />

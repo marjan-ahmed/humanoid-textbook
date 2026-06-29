@@ -3,13 +3,15 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Physical AI & Humanoid Robotics',
+  title: 'Physical AI & Humanoid Robotics Textbook',
   tagline: 'An AI-native textbook for building embodied intelligence from ROS 2 to autonomous humanoids.',
   favicon: 'img/favicon.ico',
 
   future: {
     v4: true,
   },
+
+  trailingSlash: true,
 
   url: 'https://marjan-ahmed.github.io',
   baseUrl: '/humanoid-textbook/',
@@ -55,17 +57,75 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: 'img/logo.svg',
+    image: 'img/og-image.png',
     metadata: [
       {
         name: 'description',
         content:
-          'A premium AI-native textbook for Physical AI, Humanoid Robotics, ROS 2, Gazebo, Unity, NVIDIA Isaac, VLA systems, and autonomous humanoid capstones.',
+          'A comprehensive AI-native textbook for Physical AI, Humanoid Robotics, ROS 2, Gazebo, Unity, NVIDIA Isaac, Vision-Language-Action systems, and autonomous humanoid capstone projects. 13-week structured course from embodied foundations to simulated humanoid deployment.',
       },
       {
         name: 'keywords',
         content:
-          'Physical AI, Humanoid Robotics, ROS 2, Gazebo, Unity, NVIDIA Isaac, Vision-Language-Action, AI-native textbook',
+          'Physical AI, Humanoid Robotics, ROS 2, Gazebo, Unity, NVIDIA Isaac, Vision-Language-Action, VLA, AI textbook, robotics course, embodied intelligence, simulation, digital twins, Nav2, VSLAM, robot middleware, autonomous robots',
+      },
+      {
+        name: 'author',
+        content: 'Marjan Ahmed',
+      },
+      {
+        name: 'robots',
+        content: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+      },
+      {
+        property: 'og:title',
+        content: 'Physical AI & Humanoid Robotics Textbook — AI-Native Field Manual',
+      },
+      {
+        property: 'og:description',
+        content:
+          'Learn Physical AI from ROS 2 to autonomous humanoids. 13-week structured course covering simulation, NVIDIA Isaac, VLA systems, and a humanoid capstone project.',
+      },
+      {
+        property: 'og:type',
+        content: 'website',
+      },
+      {
+        property: 'og:locale',
+        content: 'en_US',
+      },
+      {
+        property: 'og:site_name',
+        content: 'Physical AI & Humanoid Robotics Textbook',
+      },
+      {
+        name: 'twitter:card',
+        content: 'summary_large_image',
+      },
+      {
+        name: 'twitter:creator',
+        content: '@marjanahmed',
+      },
+      {
+        name: 'twitter:title',
+        content: 'Physical AI & Humanoid Robotics Textbook — AI-Native Field Manual',
+      },
+      {
+        name: 'twitter:description',
+        content:
+          'Learn Physical AI from ROS 2 to autonomous humanoids. 13-week structured course covering simulation, NVIDIA Isaac, VLA systems, and a humanoid capstone project.',
+      },
+      {
+        name: 'theme-color',
+        content: '#6f4f1f',
+      },
+      {
+        name: 'apple-mobile-web-app-capable',
+        content: 'yes',
+      },
+      {
+        name: 'apple-mobile-web-app-status-bar-style',
+        content: 'black-translucent',
       },
     ],
     colorMode: {

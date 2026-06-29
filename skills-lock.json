@@ -79,6 +79,12 @@
       "skillPath": "plugins/llm-application-dev/skills/rag-implementation/SKILL.md",
       "computedHash": "b2c65d9929448481586adb195214a14b35e3d9b6a2ad6f42b0013224985b4e2c"
     },
+    "seo-audit": {
+      "source": "coreyhaines31/marketingskills",
+      "sourceType": "github",
+      "skillPath": "skills/seo-audit/SKILL.md",
+      "computedHash": "f2dc52130189068981f21e1c0bdc4471ac7cd9b08d8a1320604411aa0f950385"
+    },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
       "sourceType": "github",
