@@ -1,0 +1,104 @@
+---
+sidebar_position: 1
+title: Vision-Language-Action
+description: Voice commands, LLM planning, perception, navigation, and manipulation.
+---
+
+# Vision-Language-Action
+
+## Learning outcomes
+
+- Explain the Vision-Language-Action pattern for robotics.
+- Describe how voice commands can become structured robot goals.
+- Identify validation steps between language planning and robot action.
+- Design a safe VLA pipeline for a household task.
+
+## Concept explanation
+
+Vision-Language-Action systems connect perception, natural language, planning, and execution. A user might say, "pick up the bottle." The robot must hear the command, understand the object, locate it, plan a path, avoid obstacles, and manipulate it safely.
+
+Language models are useful for interpretation and planning, but robot execution needs structured constraints. A good VLA workflow turns open-ended language into bounded actions that ROS 2 controllers can validate.
+
+## Visual model: VLA pipeline
+
+<div className="visual-panel">
+<div className="visual-flow">
+<div className="flow-step"><span>Voice</span>Speech to text</div>
+<div className="flow-step"><span>Language</span>Intent and task plan</div>
+<div className="flow-step"><span>Vision</span>Objects and scene state</div>
+<div className="flow-step"><span>Action</span>Navigation and manipulation</div>
+<div className="flow-step"><span>Check</span>Confidence and recovery</div>
+</div>
+</div>
+
+## Grounding checklist
+
+Before acting on language, the robot should answer:
+
+| Grounding question | Example for "bring me the red cup" |
+|---|---|
+| Is the object visible? | Red cup detected with sufficient confidence. |
+| Is the object reachable? | It is on a table inside the robot workspace. |
+| Is the path safe? | Navigation plan avoids people and obstacles. |
+| Is the action allowed? | The object is safe to grasp and not fragile/forbidden. |
+| What is the fallback? | Ask a clarification or stop if confidence drops. |
+
+## Deep dive subtopics
+
+### Intent parsing
+
+Intent parsing converts open-ended language into a structured task. A good task representation includes the action, target object, target location, constraints, confidence requirements, and fallback behavior.
+
+### Grounding language in perception
+
+A VLA system should not act on language until perception confirms that the target exists and is reachable. The phrase "red cup" must become a detected object with pose, confidence, and workspace status.
+
+### Planning under constraints
+
+The planner must know what it is allowed to do. Constraints can include no-go zones, maximum speed, gripper force, human proximity, object fragility, and timeout limits.
+
+### Recovery behavior
+
+Robots need recovery behavior because the world changes. Good recovery options include asking a clarification, rescanning, replanning, choosing a safer path, lowering speed, or stopping.
+
+### VLA failure modes
+
+| Failure | Example | Safe response |
+|---|---|---|
+| Ambiguous language | "grab that" | Ask which object |
+| Low vision confidence | Object partly hidden | Rescan or ask for help |
+| Unsafe path | Person blocks route | Stop and replan |
+| Unreachable object | Cup too high | Report limitation |
+| Controller error | Grasp fails | Release, retry, or abort |
+
+## Practical lab
+
+<div className="lab-box">
+<h3>Lab: design a VLA task card</h3>
+<p>For the command "bring me the red cup," define the required perceptions, plan steps, ROS 2 actions, validation gates, and fallback responses.</p>
+</div>
+
+## Quiz
+
+### Check your understanding
+
+1. What does Vision-Language-Action mean?
+1. Why is object confidence important?
+1. What should the robot do if the command is ambiguous?
+1. Where should controller limits live?
+
+### Answer key
+
+1. A pattern where visual perception, language understanding, and robot action are connected in one workflow.
+1. Low confidence can cause the robot to grasp or navigate toward the wrong object.
+1. Ask for clarification or choose a safe stop/recovery behavior.
+1. Outside the language model, in validated controllers and safety layers.
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Never trust text alone</h3>
+<p>A VLA system must ground language in perception and constraints before action. If vision, map, or controller state disagrees with the language plan, the robot should pause or recover.</p>
+</div>
+
+

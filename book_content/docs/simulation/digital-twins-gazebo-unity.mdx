@@ -1,0 +1,122 @@
+---
+sidebar_position: 1
+title: Digital Twins with Gazebo and Unity
+description: Physics simulation, environment design, sensors, URDF, and SDF.
+---
+
+# Digital Twins with Gazebo and Unity
+
+## Learning outcomes
+
+- Explain why simulation is required before physical robot deployment.
+- Compare Gazebo physics simulation and Unity visualization roles.
+- Identify how URDF, SDF, LiDAR, depth cameras, and IMUs support robot testing.
+- Design a simulation test for a humanoid task.
+
+## Concept explanation
+
+A digital twin is a simulated version of a robot, environment, or interaction. It is not a perfect copy of reality. It is a controlled test space where learners can expose problems before a machine moves in the real world.
+
+Gazebo is useful for physics, collisions, gravity, robot descriptions, and sensor simulation. Unity can provide high-fidelity visualization and human-robot interaction scenes. Together they help students understand both the mechanics and the experience of robotics.
+
+## Visual model: simulation stack
+
+<div className="visual-panel">
+<div className="visual-flow">
+<div className="flow-step"><span>Robot model</span>URDF, joints, links, inertia</div>
+<div className="flow-step"><span>World model</span>Rooms, floors, objects, obstacles</div>
+<div className="flow-step"><span>Physics</span>Gravity, collision, friction</div>
+<div className="flow-step"><span>Sensors</span>RGB, depth, LiDAR, IMU</div>
+<div className="flow-step"><span>Test</span>Navigation and manipulation trial</div>
+</div>
+</div>
+
+## Gazebo and Unity comparison
+
+| Tool | Strong at | Watch out for |
+|---|---|---|
+| Gazebo | Physics, robot descriptions, sensors, ROS integration | Visual realism may be limited without extra work |
+| Unity | Visual environments, interaction scenes, human-facing simulation | Physics and ROS integration need careful setup |
+| Isaac Sim | Photorealistic robotics simulation and synthetic data | Requires RTX hardware or suitable cloud GPU |
+
+## Mini case study: apartment assistant
+
+A humanoid assistant must carry a bottle from the table to the shelf. In simulation, define:
+
+- A robot model with arms, base, sensors, and collision geometry.
+- A room with furniture, narrow paths, and target shelves.
+- Sensor streams for depth, camera, and IMU data.
+- Success criteria: no collision, object identified, object delivered, robot remains stable.
+- Failure states: blocked path, low confidence object detection, unreachable shelf, unstable pose.
+
+## Deep dive subtopics
+
+### Robot description files
+
+Robot description files define what the simulator and robotics stack know about the robot. URDF is commonly used for links, joints, visual geometry, collision geometry, and inertial properties. SDF can represent richer simulation worlds and models.
+
+| Geometry type | Purpose |
+|---|---|
+| Visual geometry | What the robot looks like to humans |
+| Collision geometry | What the physics engine uses for contact |
+| Inertial geometry | Mass and inertia used for dynamics |
+
+### Sensor simulation
+
+Sensors let perception and navigation code run before hardware is available. Simulated sensors should include realistic constraints: field of view, range, update rate, noise, occlusion, and calibration assumptions. A perfect simulated sensor can make a weak algorithm look stronger than it is.
+
+### Scenario design
+
+A useful simulation scenario has a purpose. Add the specific difficulty the behavior must handle:
+
+- Narrow passage for navigation.
+- Similar-looking objects for perception.
+- Moving obstacle for safety.
+- Poor lighting for vision.
+- Unreachable target for failure recovery.
+
+### Evaluation metrics
+
+| Metric | Why it matters |
+|---|---|
+| Collision count | Safety and path quality |
+| Time to goal | Efficiency |
+| Localization drift | Navigation reliability |
+| Object detection confidence | Perception quality |
+| Recovery success rate | Robustness |
+
+### Sim-to-real caution
+
+Sim-to-real transfer is not automatic. The real world adds sensor noise, actuator limits, lighting variation, battery behavior, floor friction, network delay, and hardware wear. Treat simulation as a filter that removes obvious failures, not a guarantee of success.
+
+## Practical lab
+
+<div className="lab-box">
+<h3>Lab: specify a digital twin</h3>
+<p>Design a test world for one robot task. Include robot model, room layout, sensors, test scenario, pass criteria, and failure criteria.</p>
+</div>
+
+## Quiz
+
+### Check your understanding
+
+1. What does URDF describe?
+1. Why are collision meshes important?
+1. What is one advantage of testing sensors in simulation?
+1. Why can simulation results fail in the real world?
+
+### Answer key
+
+1. A robot's links, joints, geometry, and related physical description.
+1. They help the simulator detect contact and prevent impossible motion.
+1. They allow perception and navigation pipelines to be tested before hardware is available.
+1. Reality includes noise, friction differences, lighting changes, calibration errors, and hardware limits.
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Simulation is evidence, not permission</h3>
+<p>A passing simulation does not prove the robot is safe. Physical deployment still needs local safeguards, emergency stops, calibrated sensors, and conservative speed limits.</p>
+</div>
+
+

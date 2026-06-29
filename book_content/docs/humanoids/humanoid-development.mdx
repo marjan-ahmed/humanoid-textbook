@@ -1,0 +1,110 @@
+---
+sidebar_position: 1
+title: Humanoid Development
+description: Kinematics, balance, manipulation, interaction, and lab hardware choices.
+---
+
+# Humanoid Development
+
+## Learning outcomes
+
+- Identify the major challenges in humanoid locomotion and manipulation.
+- Compare proxy robots, miniature humanoids, and premium humanoid platforms.
+- Explain why human-centered environments make humanoid form useful.
+- Choose a lab strategy based on cost, safety, and learning value.
+
+## Concept explanation
+
+Humanoid robots are designed for spaces built around people. Doors, stairs, tables, handles, shelves, and tools all assume a human-like body. That makes humanoids promising for human environments, but difficult to control.
+
+A humanoid must coordinate balance, locomotion, perception, manipulation, and social interaction. Small errors can compound quickly: a foot placement error affects balance, balance affects arm reach, arm reach affects grasping, and grasping affects task success.
+
+## Visual model: humanoid control layers
+
+<div className="visual-panel">
+<div className="visual-flow">
+<div className="flow-step"><span>Body</span>Links, joints, actuators, hands</div>
+<div className="flow-step"><span>Balance</span>Center of mass and gait control</div>
+<div className="flow-step"><span>Perception</span>Depth, object state, human presence</div>
+<div className="flow-step"><span>Manipulation</span>Reach, grasp, force, release</div>
+<div className="flow-step"><span>Interaction</span>Speech, gesture, intent, feedback</div>
+</div>
+</div>
+
+## Robot lab options
+
+| Option | Best for | Tradeoff |
+|---|---|---|
+| Simulation only | Early learning, safety, low cost | No real hardware friction |
+| Edge kit with sensors | Perception and deployment practice | No full body motion |
+| Proxy robot or arm | ROS 2, navigation, manipulation practice | Not truly humanoid |
+| Mini humanoid | Walking and kinematics demos | Limited compute and payload |
+| Premium humanoid | Real humanoid capstone research | High cost and safety burden |
+
+## Mini case study: choosing a budget path
+
+If a class cannot access RTX workstations or full humanoids, it can still learn Physical AI through a staged lab:
+
+1. Use cloud or shared GPU access for heavy simulation.
+2. Use Jetson kits for edge inference and deployment constraints.
+3. Use RealSense cameras and IMUs for perception labs.
+4. Use a proxy robot or robotic arm for safe physical demonstrations.
+5. Keep the humanoid capstone in simulation until safety and budget allow real hardware.
+
+## Deep dive subtopics
+
+### Kinematics and dynamics
+
+Kinematics describes motion geometry: joint angles, link positions, reach, and pose. Dynamics includes mass, force, torque, acceleration, and balance. Humanoid robots need both because a pose that is geometrically possible may still be dynamically unstable.
+
+### Balance and locomotion
+
+Bipedal locomotion is difficult because the robot repeatedly moves through unstable states. It must place feet, manage center of mass, respond to ground contact, and recover from small disturbances.
+
+### Manipulation with humanoid hands
+
+Manipulation requires perception, reach planning, contact control, grip force, and object understanding. A humanoid hand may look human-like, but grasping is still constrained by actuator strength, tactile feedback, and object geometry.
+
+### Human-robot interaction
+
+Natural interaction includes speech, gaze, gesture, distance, and timing. A robot should communicate uncertainty and intent clearly so people can predict what it will do next.
+
+### Lab strategy by budget
+
+| Budget level | Recommended focus | Example setup |
+|---|---|---|
+| Low | Simulation plus edge perception | Cloud/RTX access, Jetson kit, RealSense |
+| Medium | Proxy physical behavior | Jetson, RealSense, Unitree Go2 or robotic arm |
+| High | Humanoid transfer | RTX lab, Jetson, Unitree G1 or similar platform |
+
+## Practical lab
+
+<div className="lab-box">
+<h3>Lab: design the robotics lab</h3>
+<p>Create a lab purchase plan with three tiers: minimum, recommended, and premium. Include workstation, edge kit, sensors, and robot platform. Explain what each tier can teach.</p>
+</div>
+
+## Quiz
+
+### Check your understanding
+
+1. Why are humanoids harder than wheeled robots?
+1. What can a proxy robot teach even if it is not humanoid?
+1. Why is a Jetson useful in a Physical AI course?
+1. What is the main risk of cheap humanoid kits for AI robotics?
+
+### Answer key
+
+1. They must manage balance, many joints, manipulation, and interaction in human spaces.
+1. ROS 2 control, navigation, perception, deployment, and safety patterns.
+1. It teaches edge compute limits and local deployment for embodied AI.
+1. They may not support the compute or software stack needed for Isaac ROS or advanced AI workloads.
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Hardware escalation</h3>
+<p>Move from simulation to edge kits to proxy robots before attempting full humanoid motion. Each step should add only one new risk surface at a time.</p>
+</div>
+
+

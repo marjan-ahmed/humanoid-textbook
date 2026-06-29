@@ -1,0 +1,129 @@
+---
+sidebar_position: 1
+title: Autonomous Humanoid Capstone
+description: Integrating speech, planning, navigation, vision, and manipulation in simulation.
+---
+
+# Autonomous Humanoid Capstone
+
+## Learning outcomes
+
+- Define the final integrated robotics workflow.
+- Break a voice command into perception, planning, navigation, and manipulation stages.
+- Identify what must be validated before moving from simulation to hardware.
+- Design a demo that exposes engineering tradeoffs instead of hiding them.
+
+## Concept explanation
+
+The capstone combines the course into one simulated humanoid workflow. The robot receives a voice command, interprets intent, plans a path, navigates obstacles, identifies an object, and manipulates it. The project demonstrates integration, not just isolated tool knowledge.
+
+A strong capstone makes system boundaries visible. Speech recognition, language planning, ROS 2 actions, simulation, perception, and manipulation each have a clear role and a clear failure mode.
+
+## Visual model: capstone architecture
+
+<div className="visual-panel">
+<div className="visual-flow">
+<div className="flow-step"><span>1. Hear</span>Microphone captures command</div>
+<div className="flow-step"><span>2. Parse</span>Speech becomes task intent</div>
+<div className="flow-step"><span>3. Plan</span>LLM decomposes bounded steps</div>
+<div className="flow-step"><span>4. Navigate</span>ROS 2 action drives path</div>
+<div className="flow-step"><span>5. See</span>Vision identifies target object</div>
+<div className="flow-step"><span>6. Act</span>Manipulator executes grasp or placement</div>
+<div className="flow-step"><span>7. Verify</span>System checks outcome and recovers</div>
+</div>
+</div>
+
+## Capstone requirements matrix
+
+| Requirement | Evidence in demo | Failure behavior |
+|---|---|---|
+| Voice command accepted | Transcript appears or is logged | Ask user to repeat |
+| Plan generated | Steps are visible and bounded | Reject unsafe or unclear plan |
+| Path planned | Robot route is shown in simulation | Replan or stop |
+| Object detected | Target label and confidence shown | Ask clarification or scan again |
+| Manipulation attempted | Robot reaches and grasps safely | Abort if object is unreachable |
+| Outcome verified | Final state is checked | Report incomplete task |
+
+## Demo script
+
+1. Start in a simulated room with a humanoid, obstacles, and a target object.
+2. Give a voice command such as "pick up the red cup from the table."
+3. Show the interpreted task plan.
+4. Navigate around an obstacle.
+5. Detect the target object.
+6. Execute the manipulation step.
+7. Report success or explain the failure path.
+
+## Deep dive subtopics
+
+### Defining the demo boundary
+
+A strong capstone is specific. Do not claim general household autonomy. Define one command, one environment, one set of objects, one success condition, and known failure cases.
+
+### Integration architecture
+
+The capstone should make system boundaries visible:
+
+| Layer | Responsibility |
+|---|---|
+| Voice layer | Captures and transcribes the command |
+| Planning layer | Converts intent into bounded steps |
+| Perception layer | Finds objects and estimates scene state |
+| Navigation layer | Moves through the environment safely |
+| Manipulation layer | Executes reach, grasp, and placement |
+| Verification layer | Confirms outcome or triggers recovery |
+
+### Demo instrumentation
+
+A professional demo should show what the robot believes. Display or log the interpreted command, current plan, target object confidence, navigation status, and final result. This helps judges see engineering quality instead of only surface motion.
+
+### Evaluation rubric
+
+| Criterion | Excellent evidence |
+|---|---|
+| Task grounding | Command becomes structured, inspectable goals |
+| Safety | Unsafe or uncertain states stop the robot |
+| Navigation | Robot avoids obstacles and reports progress |
+| Perception | Object detection includes confidence or validation |
+| Recovery | Demo handles at least one failure path |
+| Explanation | The system reveals what happened and why |
+
+### Stretch goals after the first capstone
+
+- Add selected-text textbook Q&A for learners.
+- Add RAG explanations for each capstone subsystem.
+- Add user background personalization for hardware/software skill level.
+- Add Urdu translation for chapter content.
+- Add a narrated 90-second demo script for hackathon submission.
+
+## Practical lab
+
+<div className="lab-box">
+<h3>Lab: write your capstone design brief</h3>
+<p>Write a one-page brief for your capstone. Include the user command, scene setup, robot capabilities, ROS 2 nodes, perception components, safety checks, and demo success criteria.</p>
+</div>
+
+## Quiz
+
+### Check your understanding
+
+1. Why should the capstone start in simulation?
+1. What makes an LLM-generated plan safe enough to execute?
+1. What should the demo show when perception confidence is low?
+1. Why is outcome verification part of the robot workflow?
+
+### Answer key
+
+1. Simulation allows integration testing without physical risk.
+1. It must be bounded, validated, translated into controller-safe actions, and monitored.
+1. A safe stop, clarification request, rescan, or alternate recovery path.
+1. The robot must know whether the action achieved the intended state or needs recovery.
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Transfer rule</h3>
+<p>A physical capstone is a separate milestone. Before hardware transfer, validate local compute, emergency stop, workspace limits, speed limits, sensor calibration, and human exclusion zones.</p>
+</div>
+
+

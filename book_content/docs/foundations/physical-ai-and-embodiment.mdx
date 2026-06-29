@@ -1,0 +1,127 @@
+---
+sidebar_position: 1
+title: Physical AI and Embodiment
+description: Foundations of embodied intelligence and AI systems in the physical world.
+---
+
+# Physical AI and Embodiment
+
+## Learning outcomes
+
+- Define Physical AI and embodied intelligence.
+- Explain how physical laws change AI system design.
+- Identify the sensors, constraints, and safety boundaries that shape humanoid robotics.
+- Separate software reasoning from embodied execution.
+
+## Concept explanation
+
+Physical AI describes AI systems that operate in the world rather than only inside digital interfaces. A chatbot can be wrong and revise an answer. A robot can be wrong and hit a table, drop an object, collide with a person, overheat a motor, or fall. That difference changes the design discipline.
+
+Embodied intelligence means intelligence is not isolated in a model. It is distributed across the body, sensors, controllers, environment, timing, and feedback loops. A humanoid robot does not simply "understand" a room. It estimates depth, tracks obstacles, predicts motion, balances its body, plans reachable paths, and checks whether a task is still safe.
+
+## Visual model: the embodied AI loop
+
+<div className="visual-panel">
+<h3>Embodied intelligence is a loop, not a prompt.</h3>
+<div className="visual-flow">
+<div className="flow-step"><span>Sense</span>Camera, depth, LiDAR, IMU, force</div>
+<div className="flow-step"><span>Model</span>Map, pose, objects, affordances</div>
+<div className="flow-step"><span>Plan</span>Goal decomposition and constraints</div>
+<div className="flow-step"><span>Act</span>Navigation, grasping, speech, gesture</div>
+<div className="flow-step"><span>Verify</span>Feedback, failure detection, recovery</div>
+</div>
+</div>
+
+## Key ideas
+
+<div className="textbook-grid">
+<div className="textbook-card"><h3>State</h3><p>The robot's estimate of itself and the world: pose, velocity, map, objects, task progress.</p></div>
+<div className="textbook-card"><h3>Affordance</h3><p>What the world allows the robot to do: a handle can be pulled, a floor can be walked on, a cup can be grasped.</p></div>
+<div className="textbook-card"><h3>Feedback</h3><p>Sensor signals that confirm whether an action worked or needs correction.</p></div>
+<div className="textbook-card"><h3>Constraint</h3><p>A boundary that keeps action safe: speed, force, reachability, collision zones, battery, latency.</p></div>
+</div>
+
+## Worked example: "clean the room"
+
+A person says, "clean the room." A software agent may produce a checklist. A robot must ground the task:
+
+| Question | Robot interpretation |
+|---|---|
+| What is a room? | A mapped physical area with boundaries and obstacles. |
+| What counts as clean? | Objects moved to target locations, trash identified, surfaces accessible. |
+| What can be touched? | Only objects the system can classify and manipulate safely. |
+| What can go wrong? | Unknown object, blocked path, low confidence, human enters workspace. |
+
+## Deep dive subtopics
+
+### Physical AI vs. software-only AI
+
+Software-only AI mostly manipulates information: text, images, embeddings, tool calls, database records, and interface state. Physical AI manipulates state in the world. Every output must pass through sensors, actuators, controllers, and safety constraints.
+
+| Software-only AI | Physical AI |
+|---|---|
+| Can revise an answer after a mistake | Must prevent damage before a mistake happens |
+| Works with digital context | Works with noisy, partial sensor data |
+| Latency affects experience | Latency can affect safety |
+| Failure can be a message | Failure may require stopping motion |
+
+### The reality gap
+
+The reality gap is the mismatch between the robot's internal model and the world itself. A table may look clear in the map, but a transparent cup, moving person, reflective surface, or lighting change can break that assumption. Physical AI systems must constantly check whether their state estimate still matches the environment.
+
+### Humanoid-specific constraints
+
+Humanoids fit human spaces, but the shape creates difficult constraints:
+
+- **Balance**: A biped must control center of mass while moving.
+- **Reachability**: Arms can only grasp objects inside reachable space.
+- **Field of view**: Cameras do not see everything at once.
+- **Contact uncertainty**: Grasping depends on friction, shape, force, and material.
+- **Social safety**: Human-centered spaces include unpredictable human motion.
+
+### Design checklist for embodied tasks
+
+1. What state must the robot estimate?
+2. Which sensors provide that state?
+3. What confidence threshold is required before action?
+4. What constraints limit the action?
+5. What feedback confirms success?
+6. What recovery path handles failure?
+
+## Practical lab
+
+<div className="lab-box">
+<h3>Lab: turn a vague command into a physical task</h3>
+<ol>
+<li>Choose one command: "clean the room", "bring me the red cup", or "inspect the shelf".</li>
+<li>List the sensors required to understand the scene.</li>
+<li>List the actions the robot must perform.</li>
+<li>Define three safety constraints.</li>
+<li>Write one recovery behavior for low confidence or blocked motion.</li>
+</ol>
+</div>
+
+## Quiz
+
+### Check your understanding
+
+1. Why is Physical AI harder than text-only AI?
+1. What is the difference between planning and acting?
+1. Name two sensors that help a robot understand physical space.
+1. Why should simulation come before physical deployment?
+
+### Answer key
+
+1. Physical AI must handle safety, timing, sensors, uncertainty, and real-world consequences.
+1. Planning proposes steps; acting executes them through controllers under physical constraints.
+1. Examples: depth camera, LiDAR, RGB camera, IMU, force/torque sensor.
+1. Simulation exposes failures without risking people, hardware, or the environment.
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Safety boundary</h3>
+<p>Never let high-level language output directly command actuators. Put perception checks, workspace constraints, controller limits, and emergency-stop procedures between the model and motion.</p>
+</div>
+
+

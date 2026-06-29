@@ -1,0 +1,73 @@
+﻿---
+sidebar_position: 1
+title: Start Here
+slug: /intro
+description: Begin the Physical AI and Humanoid Robotics textbook.
+---
+
+# Physical AI & Humanoid Robotics
+
+This AI-native textbook teaches the bridge between the digital brain and the physical body. It is written for learners who already understand modern AI agents and now want to control robots in simulated and real-world environments.
+
+<div className="visual-panel">
+<h3>Course thesis</h3>
+<div className="visual-flow">
+<div className="flow-step"><span>Input</span>Human intent</div>
+<div className="flow-step"><span>Reasoning</span>AI planning</div>
+<div className="flow-step"><span>Middleware</span>ROS 2 actions</div>
+<div className="flow-step"><span>World</span>Simulation and sensors</div>
+<div className="flow-step"><span>Output</span>Safe robot behavior</div>
+</div>
+</div>
+
+## Who this book is for
+
+This book is for students, engineers, founders, and technical instructors who want a structured path into Physical AI. You should be comfortable with Python fundamentals, basic AI concepts, and command-line development. Robotics experience helps, but the course introduces the major tools from first principles.
+
+## What you will learn
+
+By the end of the course, you should be able to:
+
+- Explain Physical AI and embodied intelligence in practical terms.
+- Use ROS 2 concepts such as nodes, topics, services, actions, launch files, and parameters.
+- Model robots and environments with Gazebo, Unity, URDF, and SDF.
+- Understand NVIDIA Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, and sim-to-real constraints.
+- Design Vision-Language-Action workflows that connect speech, planning, perception, navigation, and manipulation.
+- Evaluate hardware and cloud lab tradeoffs for RTX workstations, Jetson kits, RealSense cameras, IMUs, microphones, and robot platforms.
+
+## Learning path
+
+<div className="textbook-grid">
+<div className="textbook-card"><h3>1. Foundations</h3><p>Why Physical AI is different from software-only AI.</p></div>
+<div className="textbook-card"><h3>2. ROS 2</h3><p>The communication layer that turns plans into robot operations.</p></div>
+<div className="textbook-card"><h3>3. Simulation</h3><p>Digital twins for testing physics, sensors, and environments safely.</p></div>
+<div className="textbook-card"><h3>4. Isaac</h3><p>Accelerated perception, navigation, VSLAM, and synthetic data workflows.</p></div>
+<div className="textbook-card"><h3>5. VLA</h3><p>Vision-Language-Action pipelines for grounded robot behavior.</p></div>
+<div className="textbook-card"><h3>6. Humanoids</h3><p>Locomotion, manipulation, interaction, and hardware choices.</p></div>
+<div className="textbook-card"><h3>7. Capstone</h3><p>A simulated humanoid that listens, plans, navigates, sees, and manipulates.</p></div>
+</div>
+
+## Recommended study rhythm
+
+| Activity | Time | Output |
+|---|---:|---|
+| Read the concept section | 30-45 min | Notes and vocabulary |
+| Trace the diagram | 10-15 min | System understanding |
+| Complete the lab prompt | 45-90 min | Sketch, node graph, or design artifact |
+| Answer the quiz | 10 min | Self-check before moving on |
+
+## Chapter standard
+
+Each chapter follows a consistent pattern:
+
+- **Learning outcomes**: What you should be able to explain or build.
+- **Concept explanation**: The core ideas, vocabulary, and tradeoffs.
+- **Visual model**: A diagram, flow, table, or system map.
+- **Practical lab**: A task that turns reading into practice.
+- **Quiz**: Short checks with answers.
+- **Safety and hardware notes**: Constraints for simulation, edge devices, and physical robots when relevant.
+
+## Capstone outcome
+
+The capstone is a simulated humanoid robot that receives a voice command, forms a plan, navigates around obstacles, identifies an object with computer vision, and manipulates it. The first implementation can run in simulation; physical deployment requires additional safety review, local edge execution, and latency-aware design.
+

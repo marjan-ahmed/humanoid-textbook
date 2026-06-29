@@ -1,0 +1,6 @@
+﻿<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Physical AI Textbook mark">
+  <rect width="120" height="120" rx="24" fill="#161410"/>
+  <path d="M28 78V42h18c11 0 18 7 18 18s-7 18-18 18H28Zm13-12h5c4 0 6-2 6-6s-2-6-6-6h-5v12Z" fill="#FBFAF7"/>
+  <path d="M68 78V42h13v24h19v12H68Z" fill="#D0A65B"/>
+  <path d="M27 91h66" stroke="#D0A65B" stroke-width="6" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,130 @@
+---
+sidebar_position: 1
+title: The Robotic Nervous System
+description: ROS 2 nodes, topics, services, actions, and Python control paths.
+---
+
+# The Robotic Nervous System
+
+## Learning outcomes
+
+- Explain the role of ROS 2 in robot control.
+- Distinguish nodes, topics, services, and actions.
+- Describe how Python agents can bridge to ROS controllers through rclpy.
+- Design a basic node graph for a voice-commanded robot.
+
+## Concept explanation
+
+ROS 2 is the middleware layer that lets robot software communicate in modular pieces. Instead of one giant program controlling everything, ROS 2 encourages small processes called nodes. Each node has a clear responsibility: read a sensor, estimate pose, plan a path, publish velocity commands, or manage a task.
+
+For AI-native robotics, ROS 2 is the translation layer between high-level reasoning and robot behavior. A language model may decide that the robot should inspect a shelf, but ROS 2 turns that intent into messages, goals, feedback, and controller interfaces.
+
+## Visual model: ROS 2 communication types
+
+<div className="visual-panel">
+<h3>Choose the communication shape based on the job.</h3>
+<div className="textbook-grid">
+<div className="textbook-card"><h3>Topic</h3><p>Continuous stream. Use for camera frames, odometry, scan data, and status updates.</p></div>
+<div className="textbook-card"><h3>Service</h3><p>Request and response. Use for quick queries such as reset, configure, or get state.</p></div>
+<div className="textbook-card"><h3>Action</h3><p>Long-running goal. Use for navigation, manipulation, docking, or inspection tasks.</p></div>
+<div className="textbook-card"><h3>Parameter</h3><p>Runtime configuration. Use for speed limits, topic names, thresholds, and modes.</p></div>
+</div>
+</div>
+
+## Example node graph: voice-to-navigation
+
+<div className="visual-panel">
+<div className="visual-flow">
+<div className="flow-step"><span>Audio node</span>Microphone input</div>
+<div className="flow-step"><span>Speech node</span>Text command</div>
+<div className="flow-step"><span>Planner node</span>Structured goal</div>
+<div className="flow-step"><span>Nav action</span>Move base goal</div>
+<div className="flow-step"><span>Monitor node</span>Feedback and recovery</div>
+</div>
+</div>
+
+## When to use each primitive
+
+| Need | Best ROS 2 primitive | Example |
+|---|---|---|
+| Publish robot pose many times per second | Topic | `/odom` |
+| Ask if a map is loaded | Service | `/map_server/load_map` |
+| Send robot to a room and track progress | Action | `/navigate_to_pose` |
+| Change max speed for a lab | Parameter | `max_linear_velocity` |
+
+## Deep dive subtopics
+
+### Node responsibility design
+
+A ROS 2 node should have one clear job. Avoid building a single node that listens to speech, plans a route, reads camera frames, and sends movement commands. That kind of node is hard to test and unsafe to change.
+
+| Node | Responsibility | Example data |
+|---|---|---|
+| Speech node | Converts audio into text | `"go to the kitchen"` |
+| Intent node | Converts text into a structured goal | `{room: "kitchen", task: "navigate"}` |
+| Perception node | Publishes object or scene state | object labels, confidence, poses |
+| Navigation node | Executes path goals | action feedback and result |
+| Safety node | Validates constraints | stop, slow, replan |
+
+### Message design
+
+Good robot messages are explicit. A vague string like `"clean room"` is convenient for a language model but poor for a robot interface. Prefer structured fields that can be validated: target room, object class, confidence threshold, allowed zones, timeout, and recovery mode.
+
+### Quality of Service basics
+
+ROS 2 Quality of Service policies influence how messages are delivered:
+
+- **Reliable**: Try to deliver every message.
+- **Best effort**: Prefer speed and freshness for sensor streams.
+- **Durability**: Decide whether late subscribers receive previous data.
+- **History depth**: Decide how many messages to keep.
+
+### Launch files and parameters
+
+A serious robot system should not require manually starting every node. Launch files describe how a system starts. Parameters let you change behavior without editing code: speed limits, topic names, thresholds, model paths, and environment settings.
+
+### Common ROS 2 mistakes
+
+- Putting too many responsibilities in one node.
+- Publishing unvalidated AI output as controller-ready data.
+- Ignoring action feedback and result states.
+- Hardcoding topic names and thresholds.
+- Designing demos without timeout or recovery behavior.
+
+## Practical lab
+
+<div className="lab-box">
+<h3>Lab: design the ROS graph</h3>
+<p>Create a node graph for the command: "Go to the kitchen and find the red cup." Include:</p>
+<ul>
+<li>At least three topics.</li>
+<li>At least one service.</li>
+<li>At least one action.</li>
+<li>A validation node that checks confidence before motion.</li>
+</ul>
+</div>
+
+## Quiz
+
+### Check your understanding
+
+1. Which ROS 2 primitive is best for camera frames?
+1. Which primitive is best for a long-running navigation goal?
+1. Why should an AI planner produce structured goals instead of direct motor commands?
+1. What does rclpy allow Python code to do?
+
+### Answer key
+
+1. A topic.
+1. An action.
+1. Structured goals can be validated, constrained, monitored, and translated through controllers safely.
+1. It lets Python programs create ROS 2 nodes, publishers, subscribers, services, actions, and parameters.
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Control boundary</h3>
+<p>The AI layer may suggest a goal. ROS 2 controllers decide how that goal becomes motion. Keep speed limits, collision checks, and emergency-stop behavior outside the language model.</p>
+</div>
+
+
