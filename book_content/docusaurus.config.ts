@@ -2,6 +2,9 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+const siteUrl = process.env.DOCUSAURUS_SITE_URL ?? 'https://marjan-ahmed.github.io';
+const siteBaseUrl = process.env.DOCUSAURUS_BASE_URL ?? '/humanoid-textbook/';
+
 const config: Config = {
   title: 'Physical AI & Humanoid Robotics Textbook',
   tagline: 'An AI-native textbook for building embodied intelligence from ROS 2 to autonomous humanoids.',
@@ -13,8 +16,8 @@ const config: Config = {
 
   trailingSlash: true,
 
-  url: 'https://marjan-ahmed.github.io',
-  baseUrl: '/humanoid-textbook/',
+  url: siteUrl,
+  baseUrl: siteBaseUrl,
 
   organizationName: 'marjan-ahmed',
   projectName: 'humanoid-textbook',
@@ -198,6 +201,7 @@ const config: Config = {
 };
 
 export default config;
+
 
 
 
