@@ -55,8 +55,8 @@ load_dotenv(BACKEND_DIR / ".env")
 
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "humanoid-textbook-content")
 EMBED_MODEL = os.getenv("COHERE_EMBED_MODEL", "embed-english-v3.0")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
-BASE_URL = os.getenv("BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "llama-3.3-70b-versatile")
+BASE_URL = os.getenv("BASE_URL", "https://api.groq.com/openai/v1")
 THREAD_ASSISTANT_LIMIT = 12
 
 COHERE_CLIENT: ClientV2 | None = None
