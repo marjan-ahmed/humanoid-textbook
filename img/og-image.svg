@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0c0f12"/>
+      <stop offset="100%" stop-color="#101820"/>
+    </linearGradient>
+    <linearGradient id="copper" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#c6773d"/>
+      <stop offset="100%" stop-color="#de8c4d"/>
+    </linearGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M 44 0 L 0 0 0 44" fill="none" stroke="rgba(245,241,232,0.04)" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+
+  <!-- Copper accent bar top -->
+  <rect x="0" y="0" width="1200" height="3" fill="url(#copper)"/>
+
+  <!-- Left accent line -->
+  <line x1="80" y1="120" x2="80" y2="510" stroke="rgba(198,119,61,0.2)" stroke-width="1"/>
+
+  <!-- Blueprint grid decoration -->
+  <g opacity="0.08">
+    <line x1="120" y1="80" x2="120" y2="550" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="200" y1="80" x2="200" y2="550" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="280" y1="80" x2="280" y2="550" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="360" y1="80" x2="360" y2="550" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="100" y1="140" x2="420" y2="140" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="100" y1="220" x2="420" y2="220" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="100" y1="300" x2="420" y2="300" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="100" y1="380" x2="420" y2="380" stroke="#9fb9cc" stroke-width="1"/>
+    <line x1="100" y1="460" x2="420" y2="460" stroke="#9fb9cc" stroke-width="1"/>
+  </g>
+
+  <!-- Robot schematic hint -->
+  <g transform="translate(160, 180)" opacity="0.12">
+    <circle cx="120" cy="0" r="36" fill="none" stroke="#edf4f8" stroke-width="3"/>
+    <path d="M84 60h72l18 100h-108l18-100Z" fill="none" stroke="#edf4f8" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M82 80l-50 48 20 20 40-32" fill="none" stroke="#edf4f8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M158 80l50 48-20 20-40-32" fill="none" stroke="#edf4f8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Kicker -->
+  <text x="80" y="140" fill="#c6773d" font-family="'IBM Plex Sans', 'Segoe UI', sans-serif" font-size="14" font-weight="700" letter-spacing="3" text-transform="uppercase">AI-NATIVE FIELD MANUAL</text>
+
+  <!-- Main title -->
+  <text x="80" y="210" fill="#f5f1e8" font-family="'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="52" font-weight="700" letter-spacing="-1">Physical AI &amp;</text>
+  <text x="80" y="275" fill="#f5f1e8" font-family="'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="52" font-weight="700" letter-spacing="-1">Humanoid Robotics</text>
+
+  <!-- Subtitle -->
+  <text x="80" y="330" fill="rgba(245,241,232,0.65)" font-family="'IBM Plex Sans', sans-serif" font-size="20" font-weight="400">A structured 13-week course from embodied foundations</text>
+  <text x="80" y="358" fill="rgba(245,241,232,0.65)" font-family="'IBM Plex Sans', sans-serif" font-size="20" font-weight="400">to simulated autonomous humanoids.</text>
+
+  <!-- Tag pills -->
+  <g transform="translate(80, 400)">
+    <rect x="0" y="0" width="90" height="32" rx="4" fill="rgba(198,119,61,0.15)" stroke="rgba(198,119,61,0.3)" stroke-width="1"/>
+    <text x="45" y="21" fill="#c6773d" font-family="'Space Mono', monospace" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">ROS 2</text>
+
+    <rect x="102" y="0" width="90" height="32" rx="4" fill="rgba(198,119,61,0.15)" stroke="rgba(198,119,61,0.3)" stroke-width="1"/>
+    <text x="147" y="21" fill="#c6773d" font-family="'Space Mono', monospace" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">GAZEBO</text>
+
+    <rect x="204" y="0" width="90" height="32" rx="4" fill="rgba(198,119,61,0.15)" stroke="rgba(198,119,61,0.3)" stroke-width="1"/>
+    <text x="249" y="21" fill="#c6773d" font-family="'Space Mono', monospace" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">ISAAC</text>
+
+    <rect x="306" y="0" width="90" height="32" rx="4" fill="rgba(198,119,61,0.15)" stroke="rgba(198,119,61,0.3)" stroke-width="1"/>
+    <text x="351" y="21" fill="#c6773d" font-family="'Space Mono', monospace" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">VLA</text>
+
+    <rect x="408" y="0" width="90" height="32" rx="4" fill="rgba(198,119,61,0.15)" stroke="rgba(198,119,61,0.3)" stroke-width="1"/>
+    <text x="453" y="21" fill="#c6773d" font-family="'Space Mono', monospace" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">UNITY</text>
+
+    <rect x="510" y="0" width="110" height="32" rx="4" fill="rgba(198,119,61,0.15)" stroke="rgba(198,119,61,0.3)" stroke-width="1"/>
+    <text x="565" y="21" fill="#c6773d" font-family="'Space Mono', monospace" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="1">HUMANOID</text>
+  </g>
+
+  <!-- Stats -->
+  <g transform="translate(80, 480)">
+    <text fill="#f5f1e8" font-family="'Space Grotesk', sans-serif" font-size="36" font-weight="700">13</text>
+    <text x="0" y="22" fill="rgba(245,241,232,0.5)" font-family="'IBM Plex Sans', sans-serif" font-size="12" font-weight="500">WEEKS</text>
+
+    <text x="120" fill="#f5f1e8" font-family="'Space Grotesk', sans-serif" font-size="36" font-weight="700">7</text>
+    <text x="120" y="22" fill="rgba(245,241,232,0.5)" font-family="'IBM Plex Sans', sans-serif" font-size="12" font-weight="500">MODULES</text>
+
+    <text x="220" fill="#f5f1e8" font-family="'Space Grotesk', sans-serif" font-size="36" font-weight="700">1</text>
+    <text x="220" y="22" fill="rgba(245,241,232,0.5)" font-family="'IBM Plex Sans', sans-serif" font-size="12" font-weight="500">CAPSTONE</text>
+  </g>
+
+  <!-- URL -->
+  <text x="1120" y="590" fill="rgba(245,241,232,0.35)" font-family="'Space Mono', monospace" font-size="13" text-anchor="end" letter-spacing="0.5">marjan-ahmed.github.io/humanoid-textbook</text>
+
+  <!-- Copper accent bar bottom -->
+  <rect x="0" y="627" width="1200" height="3" fill="url(#copper)"/>
+</svg>
