@@ -18,3 +18,5 @@ dev-dependencies = []
 
 [tool.pytest.ini_options]
 addopts = "-q"
+[tool.vercel]
+entrypoint = "main:app"
