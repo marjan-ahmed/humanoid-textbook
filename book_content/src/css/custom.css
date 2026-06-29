@@ -56,14 +56,14 @@
 }
 
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
   scroll-behavior: smooth;
 }
 
 body {
   background: var(--book-paper);
   color: var(--book-ink);
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .navbar {
@@ -394,7 +394,6 @@ a {
 @media screen and (max-width: 996px) {
   .navbar {
     min-height: 62px;
-    overflow: hidden;
     padding: 0 0.72rem;
   }
 
@@ -403,7 +402,6 @@ a {
     display: flex;
     gap: 0.55rem;
     min-width: 0;
-    overflow: hidden;
     width: 100%;
   }
 
@@ -448,7 +446,6 @@ a {
 
   .navbar__items {
     min-width: 0;
-    overflow: hidden;
   }
 
   .navbar__items--right {
