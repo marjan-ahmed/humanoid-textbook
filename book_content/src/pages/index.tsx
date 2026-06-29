@@ -52,6 +52,10 @@ const pillars: Pillar[] = [
   },
 ];
 
+const publicSiteUrl = (process.env.NODE_ENV === 'production' && typeof window !== 'undefined')
+  ? window.location.origin
+  : 'https://marjan-ahmed.github.io/humanoid-textbook';
+
 const modules: ModulePreview[] = [
   {
     week: 'Weeks 1-2',
@@ -208,9 +212,9 @@ export default function Home(): ReactNode {
             provider: {
               '@type': 'Organization',
               name: 'Physical AI Textbook',
-              url: 'https://marjan-ahmed.github.io/humanoid-textbook/',
+              url: `${publicSiteUrl}/`,
             },
-            url: 'https://marjan-ahmed.github.io/humanoid-textbook/',
+            url: `${publicSiteUrl}/`,
             inLanguage: 'en',
             educationalLevel: 'Advanced',
             timeRequired: 'P13W',
@@ -236,9 +240,9 @@ export default function Home(): ReactNode {
             },
           })}
         </script>
-        <meta property="og:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.svg" />
-        <meta name="twitter:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.svg" />
-        <link rel="canonical" href="https://marjan-ahmed.github.io/humanoid-textbook/" />
+        <meta property="og:image" content={`${publicSiteUrl}/img/og-image.svg`} />
+        <meta name="twitter:image" content={`${publicSiteUrl}/img/og-image.svg`} />
+        <link rel="canonical" href={`${publicSiteUrl}/`} />
       </Head>
       <main className={styles.pageShell}>
         <section className={styles.hero}>
@@ -330,5 +334,8 @@ export default function Home(): ReactNode {
     </Layout>
   );
 }
+
+
+
 
 

@@ -1,6 +1,9 @@
-ï»¿import {themes as prismThemes} from 'prism-react-renderer';
+import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+
+const siteUrl = process.env.DOCUSAURUS_SITE_URL ?? 'https://marjan-ahmed.github.io';
+const siteBaseUrl = process.env.DOCUSAURUS_BASE_URL ?? '/humanoid-textbook/';
 
 const config: Config = {
   title: 'Physical AI & Humanoid Robotics Textbook',
@@ -13,8 +16,8 @@ const config: Config = {
 
   trailingSlash: true,
 
-  url: 'https://marjan-ahmed.github.io',
-  baseUrl: '/humanoid-textbook/',
+  url: siteUrl,
+  baseUrl: siteBaseUrl,
 
   organizationName: 'marjan-ahmed',
   projectName: 'humanoid-textbook',
@@ -29,6 +32,13 @@ const config: Config = {
     },
   ],
 
+
+  scripts: [
+    {
+      src: 'https://cdn.platform.openai.com/deployments/chatkit/chatkit.js',
+      async: true,
+    },
+  ],
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -79,7 +89,7 @@ const config: Config = {
       },
       {
         property: 'og:title',
-        content: 'Physical AI & Humanoid Robotics Textbook â€” AI-Native Field Manual',
+        content: 'Physical AI & Humanoid Robotics Textbook — AI-Native Field Manual',
       },
       {
         property: 'og:description',
@@ -108,7 +118,7 @@ const config: Config = {
       },
       {
         name: 'twitter:title',
-        content: 'Physical AI & Humanoid Robotics Textbook â€” AI-Native Field Manual',
+        content: 'Physical AI & Humanoid Robotics Textbook — AI-Native Field Manual',
       },
       {
         name: 'twitter:description',
@@ -191,6 +201,8 @@ const config: Config = {
 };
 
 export default config;
+
+
 
 
 
