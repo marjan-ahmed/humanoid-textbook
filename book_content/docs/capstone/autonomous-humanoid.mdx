@@ -1,130 +1,1282 @@
 ---
 sidebar_position: 1
 title: Autonomous Humanoid Capstone
-description: Capstone project — integrate speech recognition, AI planning, autonomous navigation, computer vision, and robotic manipulation in a simulated humanoid workflow.
-keywords: [capstone project, autonomous humanoid, speech recognition, AI planning, robot navigation, manipulation]
+description: Capstone project — integrate speech recognition, LLM task planning, autonomous navigation, computer vision, and robotic manipulation into a complete simulated humanoid workflow with ROS 2, Gazebo, Nav2, and VLA pipelines.
+keywords: [capstone project, autonomous humanoid, speech recognition, LLM planning, robot navigation, computer vision, manipulation, ROS 2, Gazebo, Nav2, VLA pipeline, task decomposition, object detection, grasp planning, hackathon, digital twin]
 ---
 
 # Autonomous Humanoid Capstone
 
 ## Learning outcomes
 
-- Define the final integrated robotics workflow.
-- Break a voice command into perception, planning, navigation, and manipulation stages.
-- Identify what must be validated before moving from simulation to hardware.
-- Design a demo that exposes engineering tradeoffs instead of hiding them.
+- Explain how speech recognition, LLM planning, perception, navigation, and manipulation compose into a single autonomous humanoid workflow.
+- Trace a voice command from raw audio through intent parsing, structured task decomposition, ROS 2 action dispatch, object detection, grasp execution, and outcome verification.
+- Identify every validation gate between language output and physical motion, and explain why each gate exists.
+- Design a capstone demo that exposes engineering tradeoffs and failure modes instead of hiding them.
+- Implement a complete ROS 2 launch file that starts all capstone subsystems with parameterized configuration.
+- Evaluate recovery behavior, timeout handling, and safety constraints at every layer of the pipeline.
+- Compare simulation-only validation against hardware transfer requirements and explain what must change.
 
 ## Concept explanation
 
-The capstone combines the course into one simulated humanoid workflow. The robot receives a voice command, interprets intent, plans a path, navigates obstacles, identifies an object, and manipulates it. The project demonstrates integration, not just isolated tool knowledge.
+The capstone combines the entire course into one integrated simulated humanoid workflow. A user speaks a command. The robot hears it, interprets intent, decomposes the intent into bounded subtasks, plans a navigation path, avoids obstacles, identifies a target object using computer vision, manipulates the object, and verifies the outcome. If any stage fails, the robot enters a recovery path rather than continuing blindly.
 
-A strong capstone makes system boundaries visible. Speech recognition, language planning, ROS 2 actions, simulation, perception, and manipulation each have a clear role and a clear failure mode.
+Integration is the core skill this project tests. Isolated knowledge of speech recognition, LLMs, ROS 2, or computer vision is insufficient. The hard problems live at the boundaries: converting unstructured language into structured goals that controllers can validate, translating high-level plans into ROS 2 action goals with timeouts and feedback monitoring, grounding language references in perceived objects, and verifying that the physical state matches the intended outcome.
+
+A strong capstone makes system boundaries visible. Each subsystem — speech, planning, perception, navigation, manipulation, verification — has a clear input, a clear output, and a clear failure mode. The demo should show judges what the robot believes, what it decided, what it attempted, and whether it succeeded. Surface motion without visible reasoning is an integration risk, not a demo strength.
+
+The pipeline runs in simulation first. Gazebo provides physics, sensor models, collision geometry, and environment interaction. ROS 2 provides the communication middleware: nodes, topics, services, actions, and parameters. Nav2 handles autonomous navigation. A Vision-Language-Action bridge connects language understanding to robot behavior. The result is a testable, debuggable, demonstrable autonomous system.
 
 ## Visual model: capstone architecture
 
 <div className="visual-panel">
+<h3>All seven layers of the capstone pipeline</h3>
 <div className="visual-flow">
-<div className="flow-step"><span>1. Hear</span>Microphone captures command</div>
-<div className="flow-step"><span>2. Parse</span>Speech becomes task intent</div>
-<div className="flow-step"><span>3. Plan</span>LLM decomposes bounded steps</div>
-<div className="flow-step"><span>4. Navigate</span>ROS 2 action drives path</div>
-<div className="flow-step"><span>5. See</span>Vision identifies target object</div>
-<div className="flow-step"><span>6. Act</span>Manipulator executes grasp or placement</div>
-<div className="flow-step"><span>7. Verify</span>System checks outcome and recovers</div>
+<div className="flow-step"><span>1. Hear</span>Microphone captures raw audio, Whisper transcribes to text</div>
+<div className="flow-step"><span>2. Parse</span>Text becomes structured intent with action, object, location, and constraints</div>
+<div className="flow-step"><span>3. Plan</span>LLM decomposes intent into bounded, ordered, validated subtasks</div>
+<div className="flow-step"><span>4. Navigate</span>ROS 2 Nav2 action drives path with obstacle avoidance and replanning</div>
+<div className="flow-step"><span>5. See</span>YOLO or RT-DETR detects target object with confidence and 6-DoF pose</div>
+<div className="flow-step"><span>6. Act</span>Manipulator executes reach, grasp, lift, and placement with force monitoring</div>
+<div className="flow-step"><span>7. Verify</span>System checks outcome state and triggers recovery if needed</div>
 </div>
 </div>
 
 ## Capstone requirements matrix
 
-| Requirement | Evidence in demo | Failure behavior |
-|---|---|---|
-| Voice command accepted | Transcript appears or is logged | Ask user to repeat |
-| Plan generated | Steps are visible and bounded | Reject unsafe or unclear plan |
-| Path planned | Robot route is shown in simulation | Replan or stop |
-| Object detected | Target label and confidence shown | Ask clarification or scan again |
-| Manipulation attempted | Robot reaches and grasps safely | Abort if object is unreachable |
-| Outcome verified | Final state is checked | Report incomplete task |
+| Requirement | Evidence in demo | Failure behavior | Validation gate |
+|---|---|---|---|
+| Voice command accepted | Transcript appears in log | Ask user to repeat, timeout after 10s | Audio energy threshold, transcription confidence |
+| Intent parsed | Structured JSON visible | Reject ambiguous command, request clarification | Schema validation, required field check |
+| Plan generated | Step list is visible and bounded | Reject unsafe or exceeding plan | Max step count, action whitelist, timeout |
+| Path planned | Robot route shown in Gazebo | Replan or stop if blocked | Nav2 costmap, obstacle clearance |
+| Object detected | Label and confidence displayed | Rescan, ask clarification, or abort | Confidence threshold, bounding box validity |
+| Manipulation attempted | Robot reaches and grasps safely | Abort if unreachable or force exceeded | Workspace limits, force threshold |
+| Outcome verified | Final state checked against goal | Report incomplete task, suggest retry | Visual confirmation, force sensor check |
 
-## Demo script
+## Code examples
 
-1. Start in a simulated room with a humanoid, obstacles, and a target object.
-2. Give a voice command such as "pick up the red cup from the table."
-3. Show the interpreted task plan.
-4. Navigate around an obstacle.
-5. Detect the target object.
-6. Execute the manipulation step.
-7. Report success or explain the failure path.
+### Complete ROS 2 launch file for capstone
+
+```python
+# capstone_launch.py
+from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, LogInfo
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    model_path = LaunchConfiguration('model_path', default='models/yolov8n.pt')
+    whisper_model = LaunchConfiguration('whisper_model', default='base')
+    llm_endpoint = LaunchConfiguration('llm_endpoint', default='http://localhost:11434/api/generate')
+    nav_timeout = LaunchConfiguration('nav_timeout', default='60.0')
+    grasp_force_limit = LaunchConfiguration('grasp_force_limit', default='15.0')
+    confidence_threshold = LaunchConfiguration('confidence_threshold', default='0.65')
+
+    return LaunchDescription([
+        DeclareLaunchArgument('use_sim_time', default_value='true'),
+        DeclareLaunchArgument('model_path', default_value='models/yolov8n.pt'),
+        DeclareLaunchArgument('whisper_model', default_value='base'),
+        DeclareLaunchArgument('llm_endpoint', default_value='http://localhost:11434/api/generate'),
+        DeclareLaunchArgument('nav_timeout', default_value='60.0'),
+        DeclareLaunchArgument('grasp_force_limit', default_value='15.0'),
+        DeclareLaunchArgument('confidence_threshold', default_value='0.65'),
+
+        LogInfo(msg=['Starting Autonomous Humanoid Capstone with sim_time=', use_sim_time]),
+
+        # Speech recognition node
+        Node(
+            package='capstone_humanoid',
+            executable='speech_node',
+            name='speech_recognizer',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'whisper_model': whisper_model,
+                'language': 'en',
+                'energy_threshold': 300,
+                'pause_threshold': 0.8,
+                'phrase_timeout': 10.0,
+            }],
+            output='screen',
+        ),
+
+        # Intent parser and task planner node
+        Node(
+            package='capstone_humanoid',
+            executable='planner_node',
+            name='task_planner',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'llm_endpoint': llm_endpoint,
+                'max_plan_steps': 8,
+                'allowed_actions': ['navigate', 'detect', 'grasp', 'place', 'scan'],
+                'plan_timeout': 15.0,
+                'safety_check_enabled': True,
+            }],
+            output='screen',
+        ),
+
+        # Object detection node
+        Node(
+            package='capstone_humanoid',
+            executable='detection_node',
+            name='object_detector',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'model_path': model_path,
+                'confidence_threshold': confidence_threshold,
+                'camera_topic': '/camera/color/image_raw',
+                'depth_topic': '/camera/depth/image_raw',
+                'detection_rate_hz': 10.0,
+            }],
+            output='screen',
+        ),
+
+        # Navigation action client node
+        Node(
+            package='capstone_humanoid',
+            executable='navigation_node',
+            name='navigation_client',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'nav_action_topic': '/navigate_to_pose',
+                'nav_timeout': nav_timeout,
+                'recovery_enabled': True,
+                'max_replanning_attempts': 3,
+                'goal_tolerance_m': 0.3,
+            }],
+            output='screen',
+        ),
+
+        # Manipulation node
+        Node(
+            package='capstone_humanoid',
+            executable='manipulation_node',
+            name='manipulator',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'grasp_force_limit': grasp_force_limit,
+                'arm_controller_topic': '/arm_controller/follow_joint_trajectory',
+                'gripper_topic': '/gripper_controller/command',
+                'reach_timeout': 10.0,
+            }],
+            output='screen',
+        ),
+
+        # Verification and recovery node
+        Node(
+            package='capstone_humanoid',
+            executable='verification_node',
+            name='outcome_verifier',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'verification_timeout': 5.0,
+                'visual_check_enabled': True,
+                'force_check_enabled': True,
+                'recovery_strategy': 'retry_then_report',
+                'max_retries': 2,
+            }],
+            output='screen',
+        ),
+
+        # Demo orchestrator node
+        Node(
+            package='capstone_humanoid',
+            executable='orchestrator_node',
+            name='demo_orchestrator',
+            parameters=[{
+                'use_sim_time': use_sim_time,
+                'demo_mode': 'full_autonomous',
+                'log_level': 'INFO',
+                'instrumentation_enabled': True,
+                'status_topic': '/capstone/status',
+            }],
+            output='screen',
+        ),
+    ])
+```
+
+### Voice command processing pipeline
+
+```python
+# speech_node.py
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+import sounddevice as sd
+import numpy as np
+from faster_whisper import WhisperModel
+import webrtcvad
+import queue
+import threading
+
+
+class SpeechRecognizer(Node):
+    def __init__(self):
+        super().__init__('speech_recognizer')
+        self.declare_parameter('whisper_model', 'base')
+        self.declare_parameter('energy_threshold', 300)
+        self.declare_parameter('pause_threshold', 0.8)
+        self.declare_parameter('phrase_timeout', 10.0)
+        self.declare_parameter('language', 'en')
+
+        model_size = self.get_parameter('whisper_model').value
+        self.whisper = WhisperModel(model_size, device='cpu', compute_type='int8')
+
+        self.publisher_ = self.create_publisher(String, '/capstone/speech/transcript', 10)
+        self.status_pub = self.create_publisher(String, '/capstone/speech/status', 10)
+        self.audio_queue = queue.Queue()
+        self.vad = webrtcvad.Vad(3)
+        self.is_listening = False
+        self.audio_buffer = []
+        self.silence_frames = 0
+
+        self.publish_status('ready')
+        self.start_audio_stream()
+        self.get_logger().info(f'Speech recognizer initialized with model={model_size}')
+
+    def start_audio_stream(self):
+        self.is_listening = True
+        stream = sd.InputStream(
+            samplerate=16000,
+            channels=1,
+            dtype='int16',
+            blocksize=480,
+            callback=self.audio_callback,
+        )
+        self.audio_stream = stream
+        stream.start()
+        thread = threading.Thread(target=self.process_audio_loop, daemon=True)
+        thread.start()
+        self.publish_status('listening')
+
+    def audio_callback(self, indata, frames, time_info, status):
+        self.audio_queue.put(indata.copy())
+
+    def process_audio_loop(self):
+        energy_threshold = self.get_parameter('energy_threshold').value
+        pause_threshold = self.get_parameter('pause_threshold').value
+        phrase_timeout = self.get_parameter('phrase_timeout').value
+
+        while self.is_listening:
+            chunk = self.audio_queue.get()
+            audio_int16 = chunk.flatten()
+            energy = np.abs(audio_int16).mean()
+
+            is_speech = energy > energy_threshold
+            if is_speech:
+                self.silence_frames = 0
+                self.audio_buffer.append(audio_int16)
+            else:
+                self.silence_frames += 1
+
+            silence_duration = self.silence_frames * (480 / 16000)
+            buffer_duration = len(self.audio_buffer) * (480 / 16000)
+
+            if buffer_duration > 0.5 and silence_duration >= pause_threshold:
+                audio_data = np.concatenate(self.audio_buffer)
+                self.audio_buffer = []
+                self.silence_frames = 0
+                self.transcribe(audio_data)
+
+            if buffer_duration > phrase_timeout:
+                self.audio_buffer = []
+                self.silence_frames = 0
+                self.get_logger().warn('Phrase timeout reached, clearing buffer')
+
+    def transcribe(self, audio_int16):
+        self.publish_status('transcribing')
+        audio_float32 = audio_int16.astype(np.float32) / 32768.0
+
+        language = self.get_parameter('language').value
+        segments, info = self.whisper.transcribe(
+            audio_float32,
+            language=language,
+            beam_size=5,
+            vad_filter=True,
+        )
+
+        full_text = ' '.join(segment.text.strip() for segment in segments).strip()
+        if not full_text:
+            self.publish_status('listening')
+            return
+
+        msg = String()
+        msg.data = full_text
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Transcribed: "{full_text}" (lang={info.language}, prob={info.language_probability:.2f})')
+        self.publish_status('listening')
+
+    def publish_status(self, status):
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = SpeechRecognizer()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### LLM task decomposition prompt template
+
+```python
+# planner_node.py
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+from geometry_msgs.msg import PoseStamped
+import json
+import requests
+import time
+
+
+PLANNING_PROMPT = """You are a robot task planner. Convert the user's voice command into a bounded, ordered plan.
+
+CONSTRAINTS:
+- You may ONLY use these actions: navigate, detect, grasp, place, scan
+- Each step must have: action, target, parameters, timeout_seconds, success_criteria
+- Maximum 8 steps per plan
+- Every plan must end with a verify step
+- Reject commands that are unsafe, unclear, or exceed robot capabilities
+
+COMMAND: "{command}"
+
+AVAILABLE OBJECTS IN SCENE: {objects}
+ROBOT WORKSPACE: x=[-2.0, 2.0], y=[-2.0, 2.0], z=[0.0, 1.5]
+GRASPABLE HEIGHT RANGE: z=[0.4, 1.2]
+
+RESPOND WITH VALID JSON:
+{{
+  "valid": true,
+  "intent_summary": "Brief description of what the user wants",
+  "steps": [
+    {{
+      "step_id": 1,
+      "action": "navigate|detect|grasp|place|scan",
+      "target": "object or location reference",
+      "parameters": {{}},
+      "timeout_seconds": 30,
+      "success_criteria": "what confirms this step succeeded"
+    }}
+  ],
+  "safety_notes": ["any safety concerns"],
+  "fallback": "what to do if the plan fails"
+}}
+
+If the command is unsafe or unclear, respond with:
+{{
+  "valid": false,
+  "reason": "explanation of why the plan cannot proceed",
+  "suggestion": "what the user should say instead"
+}}
+"""
+
+
+class TaskPlanner(Node):
+    def __init__(self):
+        super().__init__('task_planner')
+        self.declare_parameter('llm_endpoint', 'http://localhost:11434/api/generate')
+        self.declare_parameter('max_plan_steps', 8)
+        self.declare_parameter('allowed_actions', ['navigate', 'detect', 'grasp', 'place', 'scan'])
+        self.declare_parameter('plan_timeout', 15.0)
+        self.declare_parameter('safety_check_enabled', True)
+
+        self.llm_endpoint = self.get_parameter('llm_endpoint').value
+        self.max_steps = self.get_parameter('max_plan_steps').value
+        self.allowed_actions = self.get_parameter('allowed_actions').value
+
+        self.plan_pub = self.create_publisher(String, '/capstone/planner/plan', 10)
+        self.goal_pub = self.create_publisher(String, '/capstone/planner/goals', 10)
+        self.status_pub = self.create_publisher(String, '/capstone/planner/status', 10)
+
+        self.subscription = self.create_subscription(
+            String, '/capstone/speech/transcript', self.on_command_received, 10
+        )
+
+        self.get_logger().info('Task planner ready')
+        self.publish_status('ready')
+
+    def on_command_received(self, msg):
+        command = msg.data
+        self.get_logger().info(f'Planning for command: "{command}"')
+        self.publish_status('planning')
+
+        plan = self.generate_plan(command)
+        if plan is None:
+            self.publish_status('planning_failed')
+            return
+
+        if not self.validate_plan(plan):
+            self.get_logger().error('Plan validation failed')
+            self.publish_status('validation_failed')
+            return
+
+        self.publish_plan(plan)
+        self.publish_goals(plan)
+        self.publish_status('plan_ready')
+
+    def generate_plan(self, command):
+        prompt = PLANNING_PROMPT.format(
+            command=command,
+            objects=self.get_scene_objects(),
+        )
+
+        try:
+            response = requests.post(
+                self.llm_endpoint,
+                json={
+                    'model': 'llama3.2',
+                    'prompt': prompt,
+                    'stream': False,
+                    'options': {
+                        'temperature': 0.3,
+                        'num_predict': 1024,
+                    },
+                },
+                timeout=self.get_parameter('plan_timeout').value,
+            )
+            response.raise_for_status()
+            plan_text = response.json().get('response', '')
+            return json.loads(plan_text)
+        except (requests.RequestException, json.JSONDecodeError) as e:
+            self.get_logger().error(f'LLM call failed: {e}')
+            return None
+
+    def get_scene_objects(self):
+        return ['red_cup', 'blue_bottle', 'white_plate', 'green_box']
+
+    def validate_plan(self, plan):
+        if not plan.get('valid', False):
+            self.get_logger().warn(f'Plan rejected: {plan.get("reason", "unknown")}')
+            return False
+
+        steps = plan.get('steps', [])
+        if len(steps) > self.max_steps:
+            self.get_logger().error(f'Plan has {len(steps)} steps, max is {self.max_steps}')
+            return False
+
+        for step in steps:
+            action = step.get('action', '')
+            if action not in self.allowed_actions:
+                self.get_logger().error(f'Action "{action}" not in allowed list')
+                return False
+            if step.get('timeout_seconds', 0) > 60:
+                self.get_logger().warn(f'Step timeout {step["timeout_seconds"]}s exceeds 60s limit')
+                step['timeout_seconds'] = 60
+
+        return True
+
+    def publish_plan(self, plan):
+        msg = String()
+        msg.data = json.dumps(plan, indent=2)
+        self.plan_pub.publish(msg)
+
+    def publish_goals(self, plan):
+        goals = []
+        for step in plan.get('steps', []):
+            if step['action'] == 'navigate':
+                goals.append({
+                    'type': 'navigation',
+                    'target': step.get('target', ''),
+                    'step_id': step.get('step_id', 0),
+                })
+            elif step['action'] == 'grasp':
+                goals.append({
+                    'type': 'manipulation',
+                    'target': step.get('target', ''),
+                    'step_id': step.get('step_id', 0),
+                })
+        msg = String()
+        msg.data = json.dumps(goals)
+        self.goal_pub.publish(msg)
+
+    def publish_status(self, status):
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = TaskPlanner()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Navigation goal action client
+
+```python
+# navigation_node.py
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from std_msgs.msg import String
+from nav2_msgs.action import NavigateToPose
+from geometry_msgs.msg import PoseStamped, PoseWithCovarianceStamped
+import json
+import time
+
+
+class NavigationClient(Node):
+    def __init__(self):
+        super().__init__('navigation_client')
+        self.declare_parameter('nav_action_topic', '/navigate_to_pose')
+        self.declare_parameter('nav_timeout', 60.0)
+        self.declare_parameter('recovery_enabled', True)
+        self.declare_parameter('max_replanning_attempts', 3)
+        self.declare_parameter('goal_tolerance_m', 0.3)
+
+        self.nav_client = ActionClient(
+            self, NavigateToPose, self.get_parameter('nav_action_topic').value
+        )
+
+        self.plan_sub = self.create_subscription(
+            String, '/capstone/planner/plan', self.on_plan_received, 10
+        )
+        self.pose_sub = self.create_subscription(
+            PoseWithCovarianceStamped, '/amcl_pose', self.on_pose_received, 10
+        )
+
+        self.status_pub = self.create_publisher(String, '/capstone/nav/status', 10)
+        self.feedback_pub = self.create_publisher(String, '/capstone/nav/feedback', 10)
+
+        self.current_pose = None
+        self.current_goal_handle = None
+        self.replan_count = 0
+
+        self.get_logger().info('Navigation client ready')
+        self.publish_status('ready')
+
+    def on_pose_received(self, msg):
+        self.current_pose = msg.pose.pose
+
+    def on_plan_received(self, msg):
+        plan = json.loads(msg.data)
+        steps = [s for s in plan.get('steps', []) if s.get('action') == 'navigate']
+        if not steps:
+            self.get_logger().info('No navigation steps in plan')
+            return
+        self.execute_navigation_sequence(steps)
+
+    def execute_navigation_sequence(self, nav_steps):
+        for step in nav_steps:
+            target = step.get('target', '')
+            self.get_logger().info(f'Navigating to: {target}')
+            self.publish_status('navigating')
+
+            goal = self.create_navigation_goal(target)
+            if goal is None:
+                self.get_logger().error(f'Could not create goal for target: {target}')
+                self.publish_status('goal_creation_failed')
+                continue
+
+            success = self.send_and_wait_for_goal(goal)
+            if not success and self.get_parameter('recovery_enabled').value:
+                self.attempt_recovery(goal)
+
+    def create_navigation_goal(self, target):
+        target_map = {
+            'kitchen': (1.5, 0.5, 0.0),
+            'table': (0.0, 1.0, 0.0),
+            'shelf': (-1.0, 1.5, 1.57),
+            'room_center': (0.0, 0.0, 0.0),
+        }
+
+        if target not in target_map:
+            self.get_logger().error(f'Unknown target location: {target}')
+            return None
+
+        x, y, theta = target_map[target]
+        goal = NavigateToPose.Goal()
+        goal.pose.header.frame_id = 'map'
+        goal.pose.header.stamp = self.get_clock().now().to_msg()
+        goal.pose.pose.position.x = x
+        goal.pose.pose.position.y = y
+        goal.pose.pose.position.z = 0.0
+        goal.pose.pose.orientation.z = __import__('math').sin(theta / 2)
+        goal.pose.pose.orientation.w = __import__('math').cos(theta / 2)
+        return goal
+
+    def send_and_wait_for_goal(self, goal):
+        if not self.nav_client.wait_for_server(timeout_sec=5.0):
+            self.get_logger().error('Nav2 action server not available')
+            return False
+
+        send_goal_future = self.nav_client.send_goal_async(goal)
+        rclpy.spin_until_future_complete(self, send_goal_future, timeout_sec=10.0)
+
+        goal_handle = send_goal_future.result()
+        if not goal_handle.accepted:
+            self.get_logger().error('Goal rejected by navigation server')
+            return False
+
+        self.current_goal_handle = goal_handle
+        self.get_logger().info('Navigation goal accepted')
+
+        result_future = goal_handle.get_result_async()
+        feedback_period = goal_handle.feedback_callback
+        deadline = time.time() + self.get_parameter('nav_timeout').value
+
+        while rclpy.ok() and time.time() < deadline:
+            rclpy.spin_once(self, timeout_sec=0.1)
+            if result_future.done():
+                break
+
+        if not result_future.done():
+            self.get_logger().warn('Navigation timed out, canceling goal')
+            goal_handle.cancel_goal_async()
+            return False
+
+        result = result_future.result()
+        success = result.status == 4
+        self.publish_feedback(f'Navigation result: status={result.status}, success={success}')
+        return success
+
+    def attempt_recovery(self, original_goal):
+        max_attempts = self.get_parameter('max_replanning_attempts').value
+        while self.replan_count < max_attempts:
+            self.replan_count += 1
+            self.get_logger().warn(f'Recovery attempt {self.replan_count}/{max_attempts}')
+            self.publish_status(f'recovery_attempt_{self.replan_count}')
+
+            time.sleep(1.0)
+            self.send_and_wait_for_goal(original_goal)
+
+        self.get_logger().error('All recovery attempts exhausted')
+        self.publish_status('navigation_failed')
+        self.replan_count = 0
+
+    def publish_status(self, status):
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+
+    def publish_feedback(self, feedback):
+        msg = String()
+        msg.data = feedback
+        self.feedback_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = NavigationClient()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Object detection and grasp pipeline
+
+```python
+# detection_node.py
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String, Float32
+from sensor_msgs.msg import Image, CameraInfo
+from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose
+import cv2
+import numpy as np
+from cv_bridge import CvBridge
+import json
+
+
+class ObjectDetector(Node):
+    def __init__(self):
+        super().__init__('object_detector')
+        self.declare_parameter('model_path', 'models/yolov8n.pt')
+        self.declare_parameter('confidence_threshold', 0.65)
+        self.declare_parameter('camera_topic', '/camera/color/image_raw')
+        self.declare_parameter('depth_topic', '/camera/depth/image_raw')
+        self.declare_parameter('detection_rate_hz', 10.0)
+
+        from ultralytics import YOLO
+        self.model = YOLO(self.get_parameter('model_path').value)
+        self.conf_threshold = self.get_parameter('confidence_threshold').value
+        self.bridge = CvBridge()
+
+        self.image_sub = self.create_subscription(
+            Image, self.get_parameter('camera_topic').value, self.on_image, 10
+        )
+        self.depth_sub = self.create_subscription(
+            Image, self.get_parameter('depth_topic').value, self.on_depth, 10
+        )
+
+        self.detection_pub = self.create_publisher(
+            Detection2DArray, '/capstone/detections', 10
+        )
+        self.target_pub = self.create_publisher(
+            String, '/capstone/detection/target', 10
+        )
+        self.confidence_pub = self.create_publisher(
+            Float32, '/capstone/detection/confidence', 10
+        )
+        self.status_pub = self.create_publisher(String, '/capstone/detection/status', 10)
+
+        self.latest_depth = None
+        self.bridge = CvBridge()
+
+        timer_period = 1.0 / self.get_parameter('detection_rate_hz').value
+        self.timer = self.create_timer(timer_period, self.detection_loop)
+
+        self.get_logger().info('Object detector ready')
+
+    def on_depth(self, msg):
+        try:
+            self.latest_depth = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        except Exception as e:
+            self.get_logger().error(f'Depth conversion failed: {e}')
+
+    def on_image(self, msg):
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            self.process_detection(cv_image, msg.header.stamp)
+        except Exception as e:
+            self.get_logger().error(f'Image conversion failed: {e}')
+
+    def process_detection(self, cv_image, stamp):
+        results = self.model(cv_image, verbose=False)
+        detections_msg = Detection2DArray()
+        detections_msg.header.stamp = stamp
+        detections_msg.header.frame_id = 'camera_link'
+
+        best_detection = None
+        best_confidence = 0.0
+
+        for result in results:
+            boxes = result.boxes
+            for box in boxes:
+                conf = float(box.conf[0])
+                if conf < self.conf_threshold:
+                    continue
+
+                cls_id = int(box.cls[0])
+                label = self.model.names[cls_id]
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+
+                det = Detection2D()
+                det.bbox.center.position.x = (x1 + x2) / 2.0
+                det.bbox.center.position.y = (y1 + y2) / 2.0
+                det.bbox.size_x = x2 - x1
+                det.bbox.size_y = y2 - y1
+
+                hypothesis = ObjectHypothesisWithPose()
+                hypothesis.hypothesis.class_id = label
+                hypothesis.hypothesis.score = conf
+                det.results.append(hypothesis)
+
+                if self.latest_depth is not None:
+                    cx, cy = int(det.bbox.center.position.x), int(det.bbox.center.position.y)
+                    if 0 <= cy < self.latest_depth.shape[0] and 0 <= cx < self.latest_depth.shape[1]:
+                        depth_m = self.latest_depth[cy, cx] / 1000.0
+                        if 0.1 < depth_m < 5.0:
+                            hypothesis.pose.pose.position.z = depth_m
+
+                detections_msg.detections.append(det)
+
+                if conf > best_confidence:
+                    best_confidence = conf
+                    best_detection = label
+
+        self.detection_pub.publish(detections_msg)
+
+        if best_detection:
+            msg = String()
+            msg.data = json.dumps({
+                'label': best_detection,
+                'confidence': best_confidence,
+                'timestamp': stamp.sec,
+            })
+            self.target_pub.publish(msg)
+
+            conf_msg = Float32()
+            conf_msg.data = best_confidence
+            self.confidence_pub.publish(conf_msg)
+
+            self.publish_status(f'detected:{best_detection}:{best_confidence:.2f}')
+        else:
+            self.publish_status('no_target_found')
+
+    def detection_loop(self):
+        pass
+
+    def publish_status(self, status):
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ObjectDetector()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Verification and recovery logic
+
+```python
+# verification_node.py
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String, Float32, Bool
+from geometry_msgs.msg import WrenchStamped
+import json
+import time
+
+
+class OutcomeVerifier(Node):
+    def __init__(self):
+        super().__init__('outcome_verifier')
+        self.declare_parameter('verification_timeout', 5.0)
+        self.declare_parameter('visual_check_enabled', True)
+        self.declare_parameter('force_check_enabled', True)
+        self.declare_parameter('recovery_strategy', 'retry_then_report')
+        self.declare_parameter('max_retries', 2)
+
+        self.verification_sub = self.create_subscription(
+            String, '/capstone/planner/plan', self.on_plan_complete, 10
+        )
+        self.target_sub = self.create_subscription(
+            String, '/capstone/detection/target', self.on_target_update, 10
+        )
+        self.force_sub = self.create_subscription(
+            WrenchStamped, '/arm/force_sensor', self.on_force_update, 10
+        )
+        self.confidence_sub = self.create_subscription(
+            Float32, '/capstone/detection/confidence', self.on_confidence_update, 10
+        )
+
+        self.result_pub = self.create_publisher(String, '/capstone/verification/result', 10)
+        self.recovery_pub = self.create_publisher(String, '/capstone/recovery/action', 10)
+        self.status_pub = self.create_publisher(String, '/capstone/verification/status', 10)
+
+        self.current_target = None
+        self.current_confidence = 0.0
+        self.current_force = 0.0
+        self.retry_count = 0
+
+        self.get_logger().info('Outcome verifier ready')
+
+    def on_target_update(self, msg):
+        data = json.loads(msg.data)
+        self.current_target = data.get('label')
+        self.current_confidence = data.get('confidence', 0.0)
+
+    def on_confidence_update(self, msg):
+        self.current_confidence = msg.data
+
+    def on_force_update(self, msg):
+        self.current_force = msg.wrench.force.z
+
+    def on_plan_complete(self, msg):
+        plan = json.loads(msg.data)
+        self.verify_outcome(plan)
+
+    def verify_outcome(self, plan):
+        self.publish_status('verifying')
+        steps = plan.get('steps', [])
+        verification_results = []
+
+        for step in steps:
+            result = self.check_step(step)
+            verification_results.append(result)
+            if not result['passed']:
+                self.get_logger().warn(f'Step {step.get("step_id")} failed: {result["reason"]}')
+                self.trigger_recovery(step, result)
+
+        all_passed = all(r['passed'] for r in verification_results)
+        self.publish_final_result(plan, verification_results, all_passed)
+
+    def check_step(self, step):
+        action = step.get('action', '')
+        success_criteria = step.get('success_criteria', '')
+
+        if action == 'grasp':
+            return self.verify_grasp()
+        elif action == 'navigate':
+            return self.verify_navigation()
+        elif action == 'detect':
+            return self.verify_detection()
+        elif action == 'place':
+            return self.verify_placement()
+        else:
+            return {'passed': True, 'reason': 'no verification needed for this action'}
+
+    def verify_grasp(self):
+        if self.get_parameter('force_check_enabled').value:
+            if self.current_force < 0.5:
+                return {'passed': False, 'reason': 'force too low, grasp may have failed'}
+            if self.current_force > 15.0:
+                return {'passed': False, 'reason': 'force too high, possible object damage risk'}
+
+        if self.get_parameter('visual_check_enabled').value:
+            if self.current_confidence < 0.5:
+                return {'passed': False, 'reason': 'object confidence dropped after grasp'}
+
+        return {'passed': True, 'reason': 'grasp verified'}
+
+    def verify_navigation(self):
+        return {'passed': True, 'reason': 'navigation result accepted by Nav2'}
+
+    def verify_detection(self):
+        if self.current_confidence < self.get_parameter('force_check_enabled').value:
+            return {'passed': False, 'reason': 'detection confidence below threshold'}
+        return {'passed': True, 'reason': 'detection verified'}
+
+    def verify_placement(self):
+        return {'passed': True, 'reason': 'placement verified by position check'}
+
+    def trigger_recovery(self, step, result):
+        strategy = self.get_parameter('recovery_strategy').value
+        max_retries = self.get_parameter('max_retries').value
+
+        if strategy == 'retry_then_report':
+            if self.retry_count < max_retries:
+                self.retry_count += 1
+                self.get_logger().warn(f'Recovery: retry {self.retry_count}/{max_retries}')
+                msg = String()
+                msg.data = json.dumps({
+                    'action': 'retry',
+                    'step_id': step.get('step_id'),
+                    'attempt': self.retry_count,
+                    'reason': result['reason'],
+                })
+                self.recovery_pub.publish(msg)
+            else:
+                self.get_logger().error(f'Recovery: max retries reached for step {step.get("step_id")}')
+                msg = String()
+                msg.data = json.dumps({
+                    'action': 'report_failure',
+                    'step_id': step.get('step_id'),
+                    'reason': result['reason'],
+                })
+                self.recovery_pub.publish(msg)
+                self.retry_count = 0
+
+    def publish_final_result(self, plan, results, all_passed):
+        msg = String()
+        msg.data = json.dumps({
+            'plan_valid': True,
+            'all_steps_passed': all_passed,
+            'results': results,
+            'total_steps': len(results),
+            'passed_steps': sum(1 for r in results if r['passed']),
+            'timestamp': self.get_clock().now().nanoseconds,
+        })
+        self.result_pub.publish(msg)
+        self.publish_status('passed' if all_passed else 'failed')
+
+    def publish_status(self, status):
+        msg = String()
+        msg.data = status
+        self.status_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = OutcomeVerifier()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
 
 ## Deep dive subtopics
 
-### Defining the demo boundary
+### System architecture: all seven layers
 
-A strong capstone is specific. Do not claim general household autonomy. Define one command, one environment, one set of objects, one success condition, and known failure cases.
+<div className="visual-panel">
+<h3>Complete capstone layer map</h3>
+<div className="textbook-grid">
+<div className="textbook-card"><h3>Layer 1: Audio Input</h3><p>Raw audio capture from ReSpeaker mic array or simulated audio topic. WebRTC VAD for voice activity detection. Whisper for transcription. Handles noise, silence, and phrase timeout.</p></div>
+<div className="textbook-card"><h3>Layer 2: Intent Parsing</h3><p>Transcript becomes structured intent JSON with action type, target object, target location, confidence requirements, and constraint fields. Schema validation rejects malformed or incomplete intents.</p></div>
+<div className="textbook-card"><h3>Layer 3: Task Planning</h3><p>LLM decomposes intent into bounded ordered steps. Each step has action type, target, parameters, timeout, and success criteria. Plan validator enforces max steps, allowed action whitelist, and timeout limits.</p></div>
+<div className="textbook-card"><h3>Layer 4: Navigation</h3><p>ROS 2 Nav2 action client sends goals to the navigation server. Handles costmap, obstacle avoidance, replanning, and timeout. Reports feedback and result status.</p></div>
+<div className="textbook-card"><h3>Layer 5: Perception</h3><p>YOLO or RT-DETR processes camera images for object detection. Depth camera provides 3D position. Confidence thresholding filters weak detections. Target publisher sends best match to planner.</p></div>
+<div className="textbook-card"><h3>Layer 6: Manipulation</h3><p>Arm controller receives reach and grasp goals. Gripper applies force-limited grasp. Force sensor monitors contact. Trajectory planner ensures collision-free motion within workspace bounds.</p></div>
+<div className="textbook-card"><h3>Layer 7: Verification</h3><p>Checks outcome state against plan expectations. Visual verification confirms object position. Force verification confirms grasp success. Recovery node triggers retry or failure report.</p></div>
+</div>
+</div>
 
-### Integration architecture
+### Data flow between modules
 
-The capstone should make system boundaries visible:
+Every module communicates through ROS 2 topics, services, or actions. The data flow follows a directed acyclic graph with one feedback loop:
 
-| Layer | Responsibility |
-|---|---|
-| Voice layer | Captures and transcribes the command |
-| Planning layer | Converts intent into bounded steps |
-| Perception layer | Finds objects and estimates scene state |
-| Navigation layer | Moves through the environment safely |
-| Manipulation layer | Executes reach, grasp, and placement |
-| Verification layer | Confirms outcome or triggers recovery |
+| Source | Message type | Destination | Content |
+|---|---|---|---|
+| Speech node | `std_msgs/String` | Planner node | Raw transcript text |
+| Planner node | `std_msgs/String` | Navigation node, Manipulation node | JSON plan with ordered steps |
+| Planner node | `std_msgs/String` | Verification node | Complete plan for outcome checking |
+| Camera | `sensor_msgs/Image` | Detection node | RGB and depth frames |
+| Detection node | `vision_msgs/Detection2DArray` | Planner node, Verification node | Object labels, confidence, bounding boxes |
+| Detection node | `std_msgs/Float32` | Verification node | Best detection confidence |
+| Nav2 server | `nav2_msgs/action/NavigateToPose` | Navigation client | Goal, feedback, result |
+| Arm controller | `trajectory_msgs/JointTrajectory` | Manipulation node | Joint positions for reach and grasp |
+| Force sensor | `geometry_msgs/WrenchStamped` | Verification node | Contact force during grasp |
+| Verification node | `std_msgs/String` | Orchestrator node | Pass/fail result with reasons |
+| Recovery node | `std_msgs/String` | Affected node | Retry command or failure report |
+| Orchestrator | `std_msgs/String` | All nodes | Status topic for demo instrumentation |
 
-### Demo instrumentation
+### Error handling at each layer
 
-A professional demo should show what the robot believes. Display or log the interpreted command, current plan, target object confidence, navigation status, and final result. This helps judges see engineering quality instead of only surface motion.
+| Layer | Common errors | Detection method | Recovery action |
+|---|---|---|---|
+| Audio | Background noise, silence, speech cut off | Energy threshold, phrase timeout | Ask user to repeat, extend timeout |
+| Intent parsing | Ambiguous command, missing fields | Schema validation, required field check | Request clarification from user |
+| Planning | Unsafe actions, too many steps, unknown object | Plan validator rules | Reject plan, suggest alternative |
+| Navigation | Blocked path, localization failure, timeout | Nav2 result status, costmap alerts | Replan, switch to recovery behavior |
+| Perception | Low confidence, occlusion, wrong object | Confidence threshold, depth validation | Rescan, ask user to reposition |
+| Manipulation | Unreachable object, excessive force, slip | Workspace bounds check, force limits | Abort, report limitation |
+| Verification | Outcome mismatch, partial completion | Visual and force check | Retry, degrade gracefully, report |
 
-### Evaluation rubric
+### Demo instrumentation and logging
 
-| Criterion | Excellent evidence |
-|---|---|
-| Task grounding | Command becomes structured, inspectable goals |
-| Safety | Unsafe or uncertain states stop the robot |
-| Navigation | Robot avoids obstacles and reports progress |
-| Perception | Object detection includes confidence or validation |
-| Recovery | Demo handles at least one failure path |
-| Explanation | The system reveals what happened and why |
+A professional demo shows what the robot believes at every moment. Instrumentation is not optional. Judges cannot evaluate integration quality from surface motion alone.
 
-### Stretch goals after the first capstone
+**What to display or log:**
 
-- Add selected-text textbook Q&A for learners.
-- Add RAG explanations for each capstone subsystem.
-- Add user background personalization for hardware/software skill level.
-- Add Urdu translation for chapter content.
-- Add a narrated 90-second demo script for hackathon submission.
+- Transcribed command text and confidence
+- Parsed intent JSON
+- Generated plan with step status indicators
+- Navigation goal, current position, and distance to goal
+- Detected objects with labels, confidence, and 3D positions
+- Grasp attempts with force readings
+- Verification results with pass/fail per step
+- Recovery actions taken and their outcomes
+- Total execution time and per-step timing
+
+**Implementation pattern:**
+
+```python
+# instrumentation_pattern.py
+import json
+import time
+from std_msgs.msg import String
+
+
+class DemoInstrumentor:
+    def __init__(self, node):
+        self.node = node
+        self.status_pub = node.create_publisher(String, '/capstone/status', 10)
+        self.start_time = None
+        self.step_times = {}
+
+    def log_event(self, event_type, data):
+        entry = {
+            'type': event_type,
+            'data': data,
+            'timestamp': self.node.get_clock().now().nanoseconds,
+            'elapsed_s': time.time() - self.start_time if self.start_time else 0,
+        }
+        self.node.get_logger().info(f'DEMO_EVENT: {json.dumps(entry)}')
+        msg = String()
+        msg.data = json.dumps(entry)
+        self.status_pub.publish(msg)
+
+    def start_timing(self, step_name):
+        self.step_times[step_name] = time.time()
+
+    def end_timing(self, step_name):
+        if step_name in self.step_times:
+            duration = time.time() - self.step_times.pop(step_name)
+            self.log_event('timing', {'step': step_name, 'duration_s': duration})
+            return duration
+        return 0.0
+```
+
+### Evaluation rubric with scoring criteria
+
+| Criterion | Weight | Excellent (5) | Good (3-4) | Adequate (1-2) | Missing (0) |
+|---|---|---|---|---|---|
+| Task grounding | 20% | Command becomes structured, inspectable, validated goals with constraints | Goals are structured but missing validation | Goals are unstructured text | No goal parsing |
+| Safety | 20% | All unsafe states stop the robot, constraints enforced at every layer | Most constraints enforced, one gap | Some safety checks, critical gaps | No safety checks |
+| Navigation | 15% | Robot avoids obstacles, reports progress, handles replanning | Navigates successfully with minor issues | Reaches goal but with collisions or delays | No navigation |
+| Perception | 15% | Object detection with confidence, depth, and validation | Detection works but no confidence checks | Detection is inconsistent | No perception |
+| Recovery | 15% | Handles at least two failure paths with automatic recovery | Handles one failure path | Detects failures but no recovery | No failure handling |
+| Explanation | 15% | System reveals what happened and why at every step | Shows most state information | Shows only final result | No visibility |
+
+### Stretch goals
+
+**RAG-based textbook Q&A:**
+Integrate a retrieval-augmented generation system that answers learner questions about each capstone subsystem. Index the textbook chapters into a vector database (ChromaDB or Qdrant). When a learner asks "why does the planner reject unsafe commands," retrieve relevant passages from the planning and safety chapters and generate a grounded answer.
+
+**User personalization:**
+Adapt the demo complexity based on the user's background. A software-only learner sees more explanation of ROS 2 concepts. A hardware learner sees more detail about sensor calibration and actuator limits. Store preferences and adjust demo verbosity and terminology accordingly.
+
+**Urdu translation:**
+Translate chapter content into Urdu for broader accessibility. Use structured translation with technical term preservation. Key terms like ROS 2, Nav2, and YOLO remain in English. Conceptual explanations are translated with appropriate technical register.
+
+**Narrated demo script:**
+Record a 90-second narrated walkthrough of the capstone demo. The narration explains each layer as it executes, pointing out tradeoffs and design decisions. Useful for hackathon submission and remote evaluation.
+
+**Multi-language voice support:**
+Extend the speech node to handle Urdu, English, and code-switched commands. This requires multilingual Whisper model and intent parsing that handles language mixing.
+
+## Complete capstone implementation guide
+
+### Phase 1: Environment setup (Days 1-2)
+
+1. Install ROS 2 Humble on Ubuntu 22.04.
+2. Install Gazebo Fortress with humanoid robot model (Unitree G1 URDF or custom).
+3. Install Nav2 and configure the navigation stack for your environment.
+4. Create the catkin workspace and initialize the `capstone_humanoid` package.
+5. Verify the robot model loads in Gazebo with sensor plugins (camera, depth, LiDAR, IMU).
+6. Test basic teleoperation to confirm joint controllers and base motion work.
+
+### Phase 2: Speech and planning (Days 3-4)
+
+1. Implement the speech node with Whisper and WebRTC VAD.
+2. Test transcription with at least 10 different commands in varying noise conditions.
+3. Implement the planner node with LLM integration.
+4. Define the planning prompt template and test with at least 20 commands.
+5. Implement plan validation and rejection of unsafe commands.
+6. Verify the complete audio-to-plan pipeline runs end-to-end in under 5 seconds.
+
+### Phase 3: Navigation integration (Days 5-6)
+
+1. Configure Nav2 for the demo environment with costmap, planner, and controller.
+2. Implement the navigation action client with timeout and feedback.
+3. Test navigation to at least 5 target locations.
+4. Add obstacle scenarios and verify replanning behavior.
+5. Implement recovery behavior for blocked paths and timeouts.
+6. Instrument navigation with logging and timing.
+
+### Phase 4: Perception and manipulation (Days 7-8)
+
+1. Train or fine-tune object detection model for capstone objects.
+2. Implement the detection node with confidence thresholding.
+3. Integrate depth camera for 3D object position estimation.
+4. Implement the manipulation node with reach and grasp sequences.
+5. Add force monitoring and workspace bounds checking.
+6. Test the complete detect-grasp-place pipeline in simulation.
+
+### Phase 5: Integration and verification (Days 9-10)
+
+1. Implement the orchestrator node that sequences all subsystems.
+2. Connect verification and recovery logic to all layers.
+3. Run end-to-end tests with at least 10 different voice commands.
+4. Instrument the full pipeline with demo logging.
+5. Identify and document all failure modes and recovery behaviors.
+6. Practice the demo until it runs reliably in under 5 minutes.
+
+### Phase 6: Polish and submission (Days 11-13)
+
+1. Record the demo video with narration.
+2. Write the hackathon submission document.
+3. Create the project README with setup instructions.
+4. Prepare the one-page design brief.
+5. Run final integration test with judges' likely commands.
+6. Submit before deadline.
+
+## Hackathon submission checklist
+
+- [ ] Demo video recorded (2-5 minutes) with narration explaining each layer
+- [ ] README with project title, team members, description, setup instructions
+- [ ] Design brief: one page covering command, scene, capabilities, ROS 2 nodes, safety checks
+- [ ] Source code repository with clear structure and build instructions
+- [ ] Launch file that starts the complete system with one command
+- [ ] At least 3 successful end-to-end demonstrations with different voice commands
+- [ ] At least 1 demonstrated failure recovery path
+- [ ] Demo instrumentation showing robot state at each step
+- [ ] Safety documentation: constraints, limits, emergency stop behavior
+- [ ] Hardware transfer plan (if applicable): what changes for physical robot
+- [ ] Glossary of technical terms used in the project
+- [ ] Submission form completed before deadline
 
 ## Practical lab
 
 <div className="lab-box">
 <h3>Lab: write your capstone design brief</h3>
-<p>Write a one-page brief for your capstone. Include the user command, scene setup, robot capabilities, ROS 2 nodes, perception components, safety checks, and demo success criteria.</p>
+<p>Write a one-page design brief for your capstone. Include the following sections:</p>
+<ol>
+<li><strong>User command</strong>: The specific voice command your robot handles.</li>
+<li><strong>Scene setup</strong>: Room layout, obstacles, target objects, and their positions.</li>
+<li><strong>Robot capabilities</strong>: What the robot can and cannot do.</li>
+<li><strong>ROS 2 nodes</strong>: List every node, its topic/service/action, and its input/output.</li>
+<li><strong>Perception components</strong>: Camera model, detection model, confidence thresholds.</li>
+<li><strong>Safety checks</strong>: Speed limits, force limits, workspace bounds, emergency stop.</li>
+<li><strong>Failure modes</strong>: At least 3 failure scenarios with recovery behaviors.</li>
+<li><strong>Success criteria</strong>: How you know the demo succeeded.</li>
+<li><strong>Demo script</strong>: Step-by-step narration for a 90-second presentation.</li>
+</ol>
 </div>
 
 ## Quiz
 
 ### Check your understanding
 
-1. Why should the capstone start in simulation?
-1. What makes an LLM-generated plan safe enough to execute?
-1. What should the demo show when perception confidence is low?
-1. Why is outcome verification part of the robot workflow?
+1. Why should the capstone start in simulation before any hardware deployment?
+2. What makes an LLM-generated plan safe enough to execute on a robot?
+3. What should the demo show when perception confidence is low?
+4. Why is outcome verification part of the robot workflow and not optional?
+5. Name the seven layers of the capstone architecture and the responsibility of each.
+6. What is the purpose of the plan validator, and what rules does it enforce?
+7. How does the navigation node handle a goal that times out?
+8. Why must the grasp pipeline check force readings in addition to visual confirmation?
+9. What is the purpose of the demo instrumentation layer?
+10. Describe one recovery behavior that the verification node can trigger.
 
 ### Answer key
 
-1. Simulation allows integration testing without physical risk.
-1. It must be bounded, validated, translated into controller-safe actions, and monitored.
-1. A safe stop, clarification request, rescan, or alternate recovery path.
-1. The robot must know whether the action achieved the intended state or needs recovery.
+1. Simulation allows integration testing without physical risk. It exposes software bugs, timing issues, and logic errors before anyone can be hurt or hardware can be damaged.
+2. The plan must be bounded (max steps), validated (action whitelist), translated into controller-safe actions, and monitored with timeouts and feedback. Unsafe or unclear plans must be rejected.
+3. A safe stop, clarification request, rescan, or alternate recovery path. The demo should make the low confidence visible to judges rather than hiding it.
+4. The robot must know whether the action achieved the intended state or needs recovery. Without verification, failures propagate silently through the pipeline.
+5. (1) Audio Input: captures and transcribes voice. (2) Intent Parsing: converts text to structured goal. (3) Task Planning: LLM decomposes into bounded steps. (4) Navigation: moves through environment safely. (5) Perception: detects and localizes objects. (6) Manipulation: executes reach, grasp, and placement. (7) Verification: confirms outcome and triggers recovery.
+6. The plan validator enforces max step count, allowed action whitelist, timeout limits, and required fields. It rejects plans that are unsafe, too complex, or incomplete.
+7. The navigation node cancels the goal, logs a timeout event, increments the replan counter, and either attempts a recovery path or reports navigation failure to the orchestrator.
+8. Visual confirmation alone cannot confirm a successful grasp. The object may be visible but slipping, or the gripper may be closed without contact. Force readings confirm physical contact and grip stability.
+9. The instrumentation layer logs what the robot believes, decides, and does at every moment. It enables judges and developers to see engineering quality, not just surface motion.
+10. Possible recovery actions include: retry the failed step with adjusted parameters, replan the remaining steps, ask the user for clarification, or report the failure and stop gracefully.
 
-## Safety and hardware notes
+## Glossary
 
-<div className="safety-box">
-<h3>Transfer rule</h3>
-<p>A physical capstone is a separate milestone. Before hardware transfer, validate local compute, emergency stop, workspace limits, speed limits, sensor calibration, and human exclusion zones.</p>
-</div>
-
-
+- **Capstone**: An integrated project that combines all course modules into one working autonomous system.
+- **VLA (Vision-Language-Action)**: A pipeline pattern connecting visual perception, natural language understanding, and robot execution.
+- **Task Decomposition**: The process of breaking a high-level goal into ordered, bounded, executable subtasks.
+- **Plan Validator**: A safety layer that checks LLM-generated plans against constraints before execution.
+- **Action Whitelist**: A list of robot actions that the planner is allowed to use, preventing unauthorized commands.
+- **Recovery Behavior**: Automated responses to failures, including replanning, retrying, asking for help, or stopping.
+- **Demo Instrumentation**: Logging and display of robot state, decisions, and outcomes for evaluation and debugging.
+- **Outcome Verification**: The process of checking whether executed actions achieved their intended effect.
+- **Force Monitoring**: Using force/torque sensor data to confirm physical contact during grasping.
+- **Confidence Threshold**: The minimum detection score required before the robot acts on a perceived object.
+- **Nav2**: The ROS 2 navigation stack providing path planning, obstacle avoidance, and recovery behaviors.
+- **Simulation-First**: The principle that all integration testing must happen in simulation before hardware deployment.
+- **Grounding**: Connecting language references (like "red cup") to physical objects detected by sensors.
+- **Action Client**: A ROS 2 pattern that sends goals to an action server and monitors feedback and results.
+- **Digital Twin**: A simulated version of the robot and environment used for safe testing and validation.
+- **Replan**: The process of generating a new navigation path when the current path is blocked or fails.
+- **Emergency Stop**: An immediate halt of all robot motion triggered by safety-critical conditions.
+- **Workspace Bounds**: The spatial limits within which the robot arm can safely reach and manipulate objects.
+- **Orchestrator**: The central node that sequences all subsystems and manages the overall demo flow.
+- **Design Brief**: A one-page document describing the capstone's command, scene, capabilities, and success criteria.

@@ -1,111 +1,846 @@
 ---
 sidebar_position: 1
-title: The AI-Robot Brain
-description: NVIDIA Isaac Sim, Isaac ROS, VSLAM, Nav2 navigation, synthetic data generation, GPU-accelerated perception, and sim-to-real transfer workflows for autonomous robots.
-keywords: [NVIDIA Isaac, Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, sim-to-real, GPU robotics]
+title: "The AI-Robot Brain: NVIDIA Isaac Sim, Isaac ROS, VSLAM, Nav2, and Sim-to-Real Deployment"
+description: "Deep technical guide to NVIDIA Isaac Sim robotics simulation, Isaac ROS GPU-accelerated perception, VSLAM visual simultaneous localization and mapping, Nav2 autonomous navigation, synthetic data generation with domain randomization, and sim-to-real transfer workflows for deploying AI models on Jetson Orin edge hardware."
+keywords: [NVIDIA Isaac, Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, sim-to-real, GPU robotics, Jetson Orin, Omniverse, Universal Scene Description, USD, domain randomization, visual SLAM, ROS 2, Nav2 stack, GPU-accelerated robotics, edge inference, robotic perception, autonomous navigation, robotics simulation]
 ---
 
 # The AI-Robot Brain
 
-## Learning outcomes
+The AI-robot brain is the integrated software and hardware stack that allows a robot to perceive its environment, determine its own position within it, plan safe paths, and execute motion commands autonomously. NVIDIA provides a comprehensive toolchain — spanning simulation (Isaac Sim), middleware (Isaac ROS), and edge hardware (Jetson Orin) — that enables developers to build, train, validate, and deploy these capabilities with GPU acceleration at every stage. This module covers the full pipeline from simulated scene construction to physical robot deployment.
 
-- Describe the role of NVIDIA Isaac Sim and Isaac ROS.
-- Explain how VSLAM and Nav2 support robot navigation.
-- Identify when synthetic data can help perception workflows.
-- Compare workstation, cloud, and edge deployment constraints.
+---
 
-## Concept explanation
+## Learning Outcomes
 
-NVIDIA Isaac tools support high-fidelity simulation, accelerated perception, synthetic data generation, and robotics workflows that can move toward sim-to-real transfer. Isaac ROS connects GPU-accelerated robotics packages with ROS 2 systems.
+By the end of this module you will be able to:
 
-The AI-robot brain combines perception, mapping, localization, navigation, and control. It also has to respect compute limits. A scene that runs on an RTX workstation may not fit on an edge device. A cloud instance may train or simulate well, but it should not directly control a physical robot when latency matters.
+- Describe the role of NVIDIA Isaac Sim as a high-fidelity robotics simulation platform built on Omniverse and Pixar's Universal Scene Description (USD) format.
+- Explain how Isaac ROS bridges ROS 2 middleware with GPU-accelerated perception, SLAM, and navigation packages.
+- Implement a VSLAM (Visual Simultaneous Localization and Mapping) pipeline that estimates robot pose and constructs environment maps from camera input.
+- Configure and tune the Nav2 navigation stack for path planning, local trajectory control, and obstacle avoidance.
+- Design synthetic data generation workflows in Isaac Sim, including domain randomization, camera sensor configuration, and annotation pipelines.
+- Evaluate domain gap between simulated and real-world data, and apply techniques to reduce it for sim-to-real transfer.
+- Compare compute constraints across RTX workstations, cloud GPU instances, and Jetson Orin edge devices.
+- Select appropriate hardware for each stage of the robotics development lifecycle: simulation, training, validation, and deployment.
 
-## Visual model: Isaac workflow
+---
+
+## Concept Explanation
+
+### The Perception-Planning-Action Loop
+
+Every autonomous robot operates in a continuous loop:
+
+1. **Perceive**: Sensors (cameras, LiDAR, IMU, encoders) capture raw data about the environment.
+2. **Process**: Perception algorithms extract features — object detections, depth maps, semantic segments, point clouds — from raw sensor streams.
+3. **Localize**: SLAM algorithms determine the robot's position and orientation (pose) relative to a map.
+4. **Plan**: Global and local planners compute collision-free paths from the current pose to a goal.
+5. **Act**: Motor controllers translate planned trajectories into actuator commands (wheel velocities, joint torques).
+6. **Recover**: When obstacles appear or plans fail, recovery behaviors reroute or stop the robot safely.
+
+NVIDIA's Isaac ecosystem accelerates each of these stages using GPU compute, making it possible to run high-throughput perception models, simulate complex environments, and generate large volumes of labeled training data — all on the same hardware platform.
+
+### Why GPU Acceleration Matters
+
+Traditional CPU-based robotics stacks process sensor data sequentially. A single camera frame at 30 FPS requires feature extraction, depth estimation, and object detection — each a compute-intensive operation. On a CPU, these operations may take 100-300 ms per frame, introducing unacceptable latency for real-time navigation. NVIDIA Isaac ROS packages offload these operations to GPU cores via CUDA, TensorRT, and cuDNN, reducing inference latency to 5-20 ms and enabling real-time performance at 30-60 FPS.
+
+### Compute Deployment Tiers
+
+| Environment | Hardware | Best Use | Key Constraint |
+|---|---|---|---|
+| RTX Workstation | RTX 3090/4090, 32+ GB RAM, NVMe SSD | Isaac Sim scenes, synthetic data generation, local development, model training | High upfront cost (~$3,000-$6,000), large physical footprint |
+| Cloud GPU | AWS g5.xlarge, GCP a2-highgpu, Azure NCv3 | Scalable training, batch simulation, CI/CD pipelines | Network latency (50-200 ms), ongoing operational cost ($1-4/hr), no physical robot attachment |
+| Jetson Orin | Orin NX (16 GB) or Orin AGX (64 GB) | Edge inference, on-robot VSLAM, real-time Nav2, field deployment | Limited memory (8-64 GB unified), thermal constraints, no simulation capability |
+
+**Critical safety rule**: Never route real-time physical robot control through cloud infrastructure. Network latency and connectivity interruptions can cause unsafe motion. Use cloud resources for training and simulation only; keep control loops local.
+
+---
+
+## Visual Model: Isaac End-to-End Workflow
 
 <div className="visual-panel">
 <div className="visual-flow">
-<div className="flow-step"><span>Isaac Sim</span>Scene, robot, synthetic data</div>
-<div className="flow-step"><span>Perception</span>Detection, depth, segmentation</div>
-<div className="flow-step"><span>VSLAM</span>Pose and map estimation</div>
-<div className="flow-step"><span>Nav2</span>Path planning and recovery</div>
-<div className="flow-step"><span>Edge</span>Validated model on Jetson</div>
+<div className="flow-step"><span>Isaac Sim</span>Omniverse scene, robot model, physics, sensors</div>
+<div className="flow-step"><span>Synthetic Data</span>Rendered images, depth, segmentation, bounding boxes</div>
+<div className="flow-step"><span>Perception</span>DNN inference: detection, depth estimation, semantic segmentation</div>
+<div className="flow-step"><span>VSLAM</span>Visual pose estimation and sparse/dense map construction</div>
+<div className="flow-step"><span>Nav2</span>Global planner, local planner, controller, recovery</div>
+<div className="flow-step"><span>Jetson Orin</span>Deployed model on edge hardware for real-time operation</div>
 </div>
 </div>
 
-## Deployment comparison
+---
 
-| Environment | Best use | Constraint |
+## Isaac Sim: High-Fidelity Robotics Simulation
+
+### Omniverse Architecture
+
+Isaac Sim is built on NVIDIA Omniverse, a multi-GPU real-time simulation and rendering platform. Omniverse consists of:
+
+- **Omniverse Runtime**: A core engine that manages scene graphs, physics simulation (PhysX 5.x), and real-time ray-traced rendering via RTX.
+- **Omniverse Kit**: A plugin framework (formerly Omniverse Kit SDK) that provides extensions for simulation, manipulation, navigation, and sensor modeling. Isaac Sim ships with the `isaacsim` extension set pre-installed.
+- **USD (Universal Scene Description)**: Originally developed by Pixar, USD is the scene description format used by Omniverse. It supports hierarchical scene composition, non-destructive layering, and cross-application interchange. In Isaac Sim, every robot model, environment asset, sensor configuration, and animation is stored as a USD file.
+
+### Why USD Matters for Robotics
+
+USD enables:
+
+- **Scene composition**: Combine robot URDF/URDF models, environment meshes, lights, and sensors into a single scene from multiple source files without copying geometry.
+- **Non-destructive editing**: Overlay changes (sensor positions, material swaps, physics properties) on base layers without modifying originals.
+- **Reproducibility**: Version-controlled USD scenes ensure every simulation run starts from identical conditions, critical for reproducible synthetic data.
+- **Interoperability**: Export scenes to and from tools like Blender, Maya, and Houdini via USD interchange.
+
+### Isaac Sim Python Scripting API
+
+Isaac Sim provides a Python API built on top of the Omniverse Kit application framework. The API runs inside the Isaac Sim process (not as an external client) and accesses simulation state, sensor data, and physics controls directly.
+
+```python
+# Isaac Sim Python scripting API — basic setup and sensor configuration
+# Runs inside the Isaac Sim Python terminal or a standalone script
+
+import omni.isaac.core as ic
+import omni.isaac.sensor as sensor
+import numpy as np
+
+# Initialize the simulation context
+simulation_context = ic.SimulationContext()
+simulation_context.start()
+
+# Create a stage (USD scene)
+stage = omni.usd.get_context().get_stage()
+
+# Load a robot from a URDF or USD file
+robot = ic.DynamicResourcePrims(
+    prim_path="/World/Robot",
+    usd_path="omniverse://localhost/Projects/Robots/dobot.urdf"
+)
+
+# Configure an RGB camera sensor on the robot
+camera = sensor.create_camera_sensor(
+    prim_path="/World/Robot/rgb_camera",
+    resolution=[640, 480],
+    update_period=0.033,  # ~30 FPS
+    position=[0.3, 0.0, 0.5],  # x, y, z offset from robot base
+    orientation=[1.0, 0.0, 0.0, 0.0]  # quaternion: w, x, y, z
+)
+
+# Configure a depth sensor
+depth_sensor = sensor.create_depth_sensor(
+    prim_path="/World/Robot/depth_sensor",
+    resolution=[640, 480],
+    update_period=0.033,
+    position=[0.3, 0.0, 0.5],
+    clipping_distance=[0.1, 10.0]  # min/max depth in meters
+)
+
+# Step the simulation
+simulation_context.step()
+
+# Read camera data
+rgb_data = camera.get_rgb()
+depth_data = depth_sensor.get_depth()
+
+print(f"RGB shape: {rgb_data.shape}, Depth shape: {depth_data.shape}")
+
+# Cleanup
+simulation_context.stop()
+```
+
+### Domain Randomization for Synthetic Data
+
+Domain randomization varies simulation parameters across training episodes to produce diverse synthetic datasets that reduce domain gap when transferred to real hardware. Isaac Sim supports randomization of:
+
+- **Lighting**: Direction, intensity, color temperature, ambient illumination level.
+- **Textures**: Swap material properties (roughness, metallic, albedo) across objects.
+- **Object placement**: Randomize position, rotation, and scale of objects in the scene.
+- **Camera parameters**: Vary field of view, focal length, exposure, noise characteristics.
+- **Physics properties**: Adjust friction coefficients, mass, joint damping.
+- **Backgrounds**: Load random HDRI environment maps for realistic reflections and lighting variation.
+- **Sensor noise**: Add Gaussian noise, motion blur, lens distortion, and chromatic aberration to rendered images.
+
+```python
+# Domain randomization configuration in Isaac Sim
+# Randomize lighting, textures, and object positions for each episode
+
+import omni.replicator as rep
+
+# Define randomization primitives
+with rep.create.group():
+    # Randomize key light direction and intensity
+    light = rep.create.light(
+        light_type="distant",
+        rotation=rep.distribution.uniform((-45, -45, 0), (45, 45, 0)),
+        intensity=rep.distribution.uniform(500, 1500),
+        color=rep.distribution.uniform((0.8, 0.8, 0.8), (1.0, 1.0, 1.0))
+    )
+
+    # Randomize object positions on a table
+    objects = rep.create.cube(
+        size=rep.distribution.uniform(0.02, 0.08),
+        position=rep.distribution.uniform((-0.3, -0.2, 0.8), (0.3, 0.2, 1.2)),
+        rotation=rep.distribution.uniform((0, 0, 0), (360, 360, 360)),
+        material=rep.create.material_omnipbr(
+            diffuse_color=rep.distribution.uniform((0, 0, 0), (1, 1, 1)),
+            roughness=rep.distribution.uniform(0.0, 1.0),
+            metallic=rep.distribution.uniform(0.0, 1.0)
+        )
+    )
+
+    # Randomize camera pose
+    camera = rep.create.camera(
+        position=rep.distribution.uniform((0.3, -0.1, 1.0), (0.6, 0.1, 1.4)),
+        look_at=rep.distribution.uniform((-0.1, -0.1, 0.8), (0.1, 0.1, 0.8))
+    )
+
+# Attach camera to annotator for labeled data capture
+annotator = rep.AnnotatorRegistry.get_annotator("bounding_box_2d_tight")
+annotator.attach(camera)
+
+# Render N randomization passes
+for i in range(1000):
+    rep.step()
+    rgb = camera.get_rgb()
+    bbox = annotator.get_data()
+    # Save to disk or stream to training pipeline
+```
+
+### Sim-to-Real Transfer Workflow
+
+Sim-to-real transfer bridges the gap between trained-in-simulation models and physical robots. The workflow proceeds through these stages:
+
+1. **Simulate**: Build a photorealistic scene in Isaac Sim, attach sensors, and run physics simulation.
+2. **Train**: Generate synthetic data, train perception models (object detection, depth estimation, segmentation) using frameworks like PyTorch or TensorFlow.
+3. **Validate in Sim**: Test trained models in varied simulated conditions (lighting, clutter, motion) before physical deployment.
+4. **Domain Adaptation**: Apply techniques like fine-tuning on small real-world datasets, using domain-randomized training, or applying style transfer to bridge remaining domain gap.
+5. **Deploy on Edge**: Optimize the trained model (TensorRT engine compilation) and deploy on Jetson Orin for real-time inference.
+6. **Iterate**: Collect failure cases from real-world runs, create targeted simulation scenarios, and retrain.
+
+**Key metrics to track**: Model accuracy in simulation vs. real-world, inference latency on target hardware, memory footprint, power consumption on edge device.
+
+---
+
+## Isaac ROS: GPU-Accelerated Robotics Middleware
+
+### Architecture Overview
+
+Isaac ROS is a collection of ROS 2 packages that leverage NVIDIA GPU hardware for high-performance robotics computation. Each package is designed as a drop-in replacement for CPU-based ROS 2 nodes, maintaining the same topic/service/action interfaces while achieving significantly higher throughput.
+
+The core architecture pattern:
+
+```
+Sensor Input (USB Camera / CSI Camera / Livox LiDAR)
+    ↓
+Isaac ROS Node (GPU-accelerated via CUDA/TensorRT)
+    ↓
+ROS 2 Topics (compressed images, point clouds, detections)
+    ↓
+Downstream Nodes (VSLAM, Nav2, behavior trees)
+```
+
+### Isaac ROS GPU-Accelerated Packages
+
+| Package | Function | GPU Acceleration |
 |---|---|---|
-| RTX workstation | Isaac Sim, heavy scenes, local development | High cost and hardware requirement |
-| Cloud GPU | Rapid access, scalable experiments | Latency and operating cost |
-| Jetson Orin | Edge inference and deployment practice | Limited memory and compute compared with workstation |
+| `isaac_ros_nvblox` | 3D occupancy grid mapping | CUDA-accelerated voxel traversal and obstacle inflation |
+| `isaac_ros_nvslam` | Visual-inertial SLAM | CUDA feature extraction and bundle adjustment |
+| `isaac_ros_dnn_inference` | Deep neural network inference | TensorRT engine execution on GPU |
+| `isaac_ros_detectnet` | Object detection (PeopleNet, YOLO) | TensorRT-optimized detection pipeline |
+| `isaac_ros_segmentation` | Semantic/panoptic segmentation | TensorRT-accelerated encoder-decoder networks |
+| `isaac_ros_depth_estimation` | Monocular/stereo depth estimation | CUDA stereo matching and DNN depth prediction |
+| `isaac_ros_visual_slam` | Visual SLAM | CUDA ORB feature extraction and tracking |
 
-## Synthetic data: when it helps
+### Isaac ROS Node Setup (ROS 2 Humble on Jetson Orin)
 
-Synthetic data is useful when real-world data is expensive, dangerous, rare, or hard to label. In robotics, it can help train perception systems for object detection, segmentation, and navigation scenarios. The risk is domain gap: simulated images may not match real lighting, textures, camera noise, or object variation.
+```bash
+# Install Isaac ROS base packages on Jetson Orin
+# Prerequisites: JetPack 5.x (L4T 35.x), CUDA 11.4, cuDNN 8.6, TensorRT 8.5
 
-## Deep dive subtopics
+# Add NVIDIA apt repository
+sudo apt-get update && sudo apt-get install -y software-properties-common
+sudo add-apt-repository universe
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+    -o /usr/share/keyrings/ros-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
+    http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | \
+    sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
-### Isaac Sim as a robotics laboratory
+# Install ROS 2 Humble
+sudo apt-get update
+sudo apt-get install -y ros-humble-desktop
 
-Isaac Sim is useful when learners need photorealistic scenes, synthetic data, realistic sensors, and complex robot environments. It is especially relevant for perception-heavy robotics because visual data quality and environment variation matter.
+# Install Isaac ROS core
+sudo apt-get install -y ros-humble-isaac-ros-common
 
-### Isaac ROS as an acceleration layer
+# Install VSLAM package
+sudo apt-get install -y ros-humble-isaac-ros-visual-slam
 
-Isaac ROS provides GPU-accelerated robotics components that can plug into ROS 2 workflows. In this course, treat it as the bridge between robotics middleware and high-performance perception/navigation modules.
+# Install NVBLOX mapping
+sudo apt-get install -y ros-humble-isaac-ros-nvblox
 
-### VSLAM in plain language
+# Install Nav2 integration
+sudo apt-get install -y ros-humble-isaac-ros-nav2
 
-Visual SLAM estimates where the robot is while building or updating a map using visual information. It answers two questions at once: "Where am I?" and "What does the world around me look like?"
+# Install DNN inference node
+sudo apt-get install -y ros-humble-isaac-ros-dnn-inference
+```
 
-### Nav2 mental model
+### VSLAM Pipeline Configuration
+
+Visual SLAM (VSLAM) simultaneously estimates the robot's pose (position and orientation) and constructs a map of the environment using visual features from one or more cameras. Isaac ROS provides `isaac_ros_visual_slam` which uses CUDA-accelerated ORB feature extraction and a GPU-based visual-inertial odometry backend.
+
+**Key concepts**:
+- **Front-end**: Extracts features from each frame, matches them to previous frames, estimates relative pose via epipolar geometry.
+- **Back-end**: Optimizes the full trajectory and map points using bundle adjustment (BA) or factor graph optimization.
+- **Loop closure**: Detects when the robot revisits a previously mapped location and corrects accumulated drift.
+
+```yaml
+# VSLAM node configuration (isaac_ros_visual_slam)
+# File: visual_slam_params.yaml
+
+/**:
+  ros__parameters:
+    # Camera configuration
+    camera_frame: "camera_link"
+    image_width: 640
+    image_height: 480
+    
+    # Feature extraction
+    feature_type: "ORB"
+    num_features: 2000
+    scale_levels: 8
+    scale_factor: 1.2
+    
+    # Tracking parameters
+    match_threshold: 0.7
+    min_matches: 30
+    keyframe_interval: 3
+    
+    # Backend optimization
+    backend_mode: "VIO"  # Visual-Inertial Odometry
+    ba_window_size: 10
+    imu_rate: 200  # Hz
+    
+    # Loop closure
+    enable_loop_closure: true
+    loop_closure_interval: 30  # seconds
+    vocabulary_path: "/opt/isaac_ros/vocab/orb_vocab.dbow2"
+    
+    # Map management
+    max_keyframes: 500
+    enable_landmark_reuse: true
+    
+    # Output
+    publish_pose: true
+    publish_point_cloud: true
+    publish_tf: true
+    world_frame: "map"
+```
+
+```bash
+# Launch the VSLAM node
+ros2 launch isaac_ros_visual_slam visual_slam.launch.py \
+    camera_topic:=/camera/color/image_raw \
+    imu_topic:=/camera/imu \
+    params_file:=visual_slam_params.yaml
+```
+
+### Nav2 Navigation Stack
+
+Nav2 (Navigation 2) is the standard ROS 2 navigation framework. It provides a complete autonomy stack including global planning, local planning, controller execution, costmap management, and recovery behaviors.
+
+#### Nav2 Architecture
 
 <div className="visual-panel">
 <div className="visual-flow">
-<div className="flow-step"><span>Map</span>Known or built environment</div>
-<div className="flow-step"><span>Localize</span>Estimate robot pose</div>
-<div className="flow-step"><span>Plan</span>Find a global route</div>
-<div className="flow-step"><span>Control</span>Follow local motion commands</div>
-<div className="flow-step"><span>Recover</span>Handle blocked or failed motion</div>
+<div className="flow-step"><span>Map</span>2D occupancy grid or 3D voxel map (known or built via SLAM)</div>
+<div className="flow-step"><span>Localize</span>Estimate robot pose against the map (AMCL, visual SLAM, or LiDAR SLAM)</div>
+<div className="flow-step"><span>Global Plan</span>Compute shortest path from robot pose to goal (NavFn, Smac, Theta*)</div>
+<div className="flow-step"><span>Local Plan</span>Compute obstacle-free trajectory segment (DWB, TEB, MPPI, RPP)</div>
+<div className="flow-step"><span>Controller</span>Convert trajectory to velocity commands at control frequency</div>
+<div className="flow-step"><span>Recovery</span>Handle stuck, blocked, or failed states (backup, rotate, wait, clear costmap)</div>
 </div>
 </div>
 
-### Synthetic data design
+#### Nav2 Parameter Tuning
 
-Synthetic data should be varied deliberately. Change lighting, camera angle, object placement, texture, background clutter, and occlusion. If every synthetic scene looks clean and centered, the model may fail in ordinary rooms.
+```yaml
+# Nav2 parameter tuning for Isaac Sim environment
+# File: nav2_params.yaml
 
-### Hardware budgeting
+amcl:
+  ros__parameters:
+    robot_model_type: "differential"
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    max_beams: 61
+    max_particles: 2000
+    min_particles: 500
+    pf_err: 0.05
+    pf_z: 0.99
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    use_map_topic: true
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
 
-Isaac workflows are constrained by GPU memory, storage, CPU, and operating system support. The course should explain why an RTX workstation is recommended for simulation and why a Jetson is useful for edge deployment practice.
+global_costmap:
+  ros__parameters:
+    update_frequency: 1.0
+    publish_frequency: 1.0
+    global_frame: map
+    robot_base_frame: base_link
+    use_sim_time: true
+    robot_radius: 0.22
+    resolution: 0.05
+    track_unknown_space: true
+    plugin_names: ["static_layer", "obstacle_layer", "inflation_layer"]
+    plugin_types: [
+      "nav2_costmap_2d::StaticLayer",
+      "nav2_costmap_2d::ObstacleLayer",
+      "nav2_costmap_2d::InflationLayer"
+    ]
+    static_layer:
+      enabled: true
+      subscribe_to_updates: true
+    obstacle_layer:
+      enabled: true
+      observation_sources: scan
+      scan:
+        topic: /scan
+        max_obstacle_height: 2.0
+        clearing: true
+        marking: true
+    inflation_layer:
+      enabled: true
+      cost_scaling_factor: 3.0
+      inflate_unknown: false
+      inflation_radius: 0.55
 
-## Practical lab
+local_costmap:
+  ros__parameters:
+    update_frequency: 5.0
+    publish_frequency: 2.0
+    global_frame: odom
+    robot_base_frame: base_link
+    use_sim_time: true
+    robot_radius: 0.22
+    resolution: 0.05
+    track_unknown_space: true
+    plugin_names: ["voxel_layer", "inflation_layer"]
+    plugin_types: [
+      "nav2_costmap_2d::VoxelLayer",
+      "nav2_costmap_2d::InflationLayer"
+    ]
+    voxel_layer:
+      enabled: true
+      observation_sources: scan
+      scan:
+        topic: /scan
+        max_obstacle_height: 2.0
+        clearing: true
+        marking: true
+      origin_z: 0.0
+      z_resolution: 0.05
+      z_voxels: 16
+      max_obstacle_height: 2.0
+      mark_threshold: 0
+    inflation_layer:
+      enabled: true
+      cost_scaling_factor: 3.0
+      inflation_radius: 0.55
+
+controller_server:
+  ros__parameters:
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      odom_topic: odom
+      controller_frequency: 10.0
+      min_x_velocity_threshold: 0.001
+      min_y_velocity_threshold: 0.5
+      min_theta_velocity_threshold: 0.001
+      progress_checker_plugins: ["progress_checker"]
+      goal_checker_plugins: ["general_goal_checker"]
+      cost_scaling_factor: 3.0
+      interpolation_steps: 25
+      goal_checker_plugins: ["general_goal_checker"]
+      general_goal_checker:
+        stateful: true
+        xy_goal_tolerance: 0.25
+        yaw_goal_tolerance: 0.25
+      progress_checker:
+        plugin: "nav2_controller::SimpleProgressChecker"
+        required_movement_radius: 0.5
+        movement_time_allowance: 10.0
+      DWBLocalPlanner:
+        max_vel_x: 0.3
+        min_vel_x: -0.1
+        max_vel_y: 0.0
+        max_vel_theta: 1.0
+        min_speed_xy: 0.0
+        max_speed_xy: 0.3
+        min_speed_theta: 0.0
+        acc_lim_x: 2.5
+        acc_lim_y: 0.0
+        acc_lim_theta: 3.2
+        decel_lim_x: -2.5
+        decel_lim_y: 0.0
+        decel_lim_theta: -3.2
+        vx_samples: 20
+        vy_samples: 0
+        vtheta_samples: 20
+        path_distance_bias: 32.0
+        goal_distance_bias: 24.0
+        occdist_scale: 0.05
+        forward_point_distance: 0.325
+        stop_time_buffer: 0.2
+        scaling_speed: 0.25
+        max_scaling_factor: 0.2
+        oscillation_reset_dist: 0.05
+        oscillation_reset_angle: 0.2
+        rotate_restart: true
+        base_frame_id: base_link
+        global_frame_id: odom
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 1.0
+    GridBased:
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      tolerance: 0.125
+      downsample_costmap: false
+      downsampling_factor: 1
+      allow_unknown: true
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      terminal_planning_penalty: 0.1
+      use_final_approach_orientation: true
+      smooth_path: true
+      smoother:
+        max_iterations: 1000
+        tolerance: 1.0e-10
+
+bt_navigator:
+  ros__parameters:
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    action_server_result_timeout: 900.0
+    goal_check_frequency: 10.0
+    transform_tolerance: 0.2
+    global_frame: map
+
+recovery_server:
+  ros__parameters:
+    node_names: ["backup_server", "spin_server", "wait_server", "clearing_server"]
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "wait", "clearing"]
+    plugin_types: [
+      "nav2_behaviors::Spin",
+      "nav2_behaviors::BackUp",
+      "nav2_behaviors::Wait",
+      "nav2_behaviors::ClearingCostmap"
+    ]
+    spin:
+      plugin: "nav2_behaviors::Spin"
+      target_yaw: 1.57
+      max_vel_theta: 1.0
+      min_in_place_vel_theta: 0.4
+      sim_time: 1.5
+      granularity: 0.01745
+    backup:
+      plugin: "nav2_behaviors::BackUp"
+      target_y: -0.15
+      max_vel_x: -0.2
+      min_vel_x: -0.01
+      max_vel_theta: 0.0
+      min_in_place_vel_theta: 0.0
+      sim_time: 1.5
+      granularity: 0.025
+    wait:
+      plugin: "nav2_behaviors::Wait"
+      wait_duration: 3.0
+```
+
+```bash
+# Launch Nav2 stack
+ros2 launch nav2_bringup navigation_launch.py \
+    params_file:=nav2_params.yaml \
+    use_sim_time:=true
+```
+
+---
+
+## Deep Dive Subtopics
+
+### Omniverse Architecture (Expanded)
+
+Omniverse is NVIDIA's platform for building and simulating physically accurate 3D worlds. Its architecture consists of:
+
+- **Kit Runtime**: The application framework that manages extensions, the scene graph, physics stepping, and rendering pipeline. Isaac Sim runs as a Kit application.
+- **PhysX 5.x**: NVIDIA's physics engine supporting rigid body dynamics, articulations (joints), soft bodies, cloth, particles, and deformable terrain. PhysX runs on both CPU and GPU (GPU PhysX for large-scale simulations).
+- **RTX Rendering**: Real-time path tracing and rasterization using NVIDIA RTX cores. Supports ray-traced reflections, global illumination, ambient occlusion, and physically based materials for photorealistic synthetic data.
+- **Omniverse Nucleus**: A collaboration server (optional) that manages USD scenes, assets, and versioning across teams. Not required for single-user Isaac Sim workflows.
+- **Omniverse Connectors**: Plugins for third-party tools (Maya, 3ds Max, Blender, Houdini) that allow bidirectional USD data flow. Robot models designed in CAD tools can be imported into Isaac Sim via these connectors.
+
+The Omniverse extension system means Isaac Sim's robotics capabilities are modular: `isaacsim.asset.importer.urdf`, `isaacsim.sensor`, `isaacsim.kit.collaboration.channel_manager`, and hundreds of other extensions can be enabled or disabled per project.
+
+### USD (Universal Scene Description) Format (Expanded)
+
+USD is the foundational data model for Omniverse and Isaac Sim:
+
+- **Prim (Primitive)**: The atomic unit of a USD scene. Every object, light, camera, and transform is a prim with typed attributes (position, scale, material assignment, physics properties).
+- **Stage**: The top-level container for a USD scene. A stage is a directed acyclic graph (DAG) of prims, forming a hierarchy.
+- **Layer**: A single USD file or in-memory data source. Multiple layers can be composed (stacked) to create complex scenes non-destructively.
+- **Reference**: A mechanism to include one layer inside another without copying data. Robot USD files typically reference separate mesh, material, and physics sub-layers.
+- **Variant Sets**: Named groups of alternatives within a USD prim. For example, a robot prim might have a variant set `configuration` with variants `arm_only` and `arm_with_gripper`.
+- **Schema**: A typed definition for prims (e.g., `Mesh`, `PhysicsRigidBody`, `Camera`). Schemas ensure interoperability across tools.
+
+**Practical implication**: When building Isaac Sim scenes, understanding USD composition (references, payloads, variant sets, layers) is essential for managing complex robot environments efficiently.
+
+### Isaac ROS GPU-Accelerated Packages (Expanded)
+
+#### `isaac_ros_nvslam` — GPU-Accelerated Visual-Inertial SLAM
+
+NVSLAM uses CUDA kernels for:
+
+- **FAST/ORB feature extraction**: Parallelized across GPU threads, processing each image frame in \<2 ms (vs. 15-30 ms on CPU).
+- **Optical flow tracking**: CUDA-accelerated Lucas-Kanade pyramidal tracking for frame-to-frame motion estimation.
+- **Bundle adjustment**: GPU-accelerated Gauss-Newton solver for joint optimization of camera poses and 3D landmark positions.
+
+The package implements a visual-inertial odometry (VIO) front-end with an optional graph-based back-end for global optimization and loop closure detection.
+
+#### `isaac_ros_nvblox` — 3D Occupancy Mapping
+
+NVBLOX constructs a 3D voxel map from depth images and LiDAR point clouds. Key features:
+
+- **GPU-accelerated voxelization**: Converts depth images to voxel grids in real-time using CUDA kernels.
+- **ESDF (Euclidean Signed Distance Field) computation**: Computes distance to nearest obstacle for every voxel, enabling safe path planning.
+- **Dynamic obstacle handling**: Supports temporal decay of voxel occupancy, allowing the map to adapt to moving objects.
+- **Multi-sensor fusion**: Combines depth camera, LiDAR, and IMU data into a unified 3D map.
+
+#### `isaac_ros_dnn_inference` — Generic DNN Inference
+
+This package provides a generic TensorRT-based inference node that can load any ONNX model:
+
+- **Automatic TensorRT optimization**: Converts ONNX models to TensorRT engines at startup, applying layer fusion, precision calibration (FP16/INT8), and kernel auto-tuning.
+- **Batch processing**: Supports batching multiple input frames for higher throughput on GPU.
+- **Pre/post-processing**: Configurable input normalization, resize, and output parsing (NMS for detection, argmax for segmentation).
+
+---
+
+## Synthetic Data Generation: Design and Pipeline
+
+### When Synthetic Data Helps
+
+Synthetic data is valuable when:
+
+- Real-world data is **expensive** to collect (requires physical robots, human annotators, specific locations).
+- Data is **dangerous** to acquire (industrial environments, hazardous materials, extreme weather).
+- Data is **rare** (edge cases, failure scenarios, uncommon object configurations).
+- **Labels** are expensive (pixel-level segmentation, 3D bounding boxes, instance masks require hours of manual annotation per image).
+
+### Pipeline Design
+
+A complete synthetic data pipeline in Isaac Sim:
+
+1. **Scene setup**: Load robot models, environment assets, and sensor configurations into a USD stage.
+2. **Randomization**: Configure domain randomization parameters (lighting, textures, positions, noise).
+3. **Annotation**: Configure Isaac Sim's built-in annotators for ground-truth labels: bounding boxes, instance segmentation masks, depth maps, surface normals, optical flow, and semantic labels.
+4. **Rendering**: Execute simulation steps, capturing sensor data and annotations at each frame.
+5. **Export**: Save rendered images and annotations to disk (PNG images + JSON/COCO-format annotations) or stream directly to training pipelines via NVIDIA DALI or custom data loaders.
+6. **Quality validation**: Inspect generated data for coverage, label accuracy, and distribution of randomization parameters.
+
+### Reducing Domain Gap
+
+Domain gap is the discrepancy between simulated and real-world data. Techniques to reduce it:
+
+- **High-fidelity rendering**: Use ray tracing, accurate camera models (distortion, noise, vignetting), and physically based materials.
+- **Domain randomization**: Expose the model to extreme variation during training so it generalizes to real conditions.
+- **Domain adaptation**: Fine-tune on small real-world datasets after pre-training on synthetic data.
+- **Style transfer**: Apply neural style transfer to rendered images to match real-world visual characteristics.
+- **Sim-to-real augmentation**: Add realistic noise (Gaussian, salt-and-pepper, motion blur, JPEG compression artifacts) to synthetic images.
+
+---
+
+## Hardware Requirements: Detailed
+
+### Minimum Requirements for Isaac Sim
+
+| Component | Minimum | Recommended |
+|---|---|---|
+| GPU | NVIDIA RTX 2070 (8 GB VRAM) | RTX 3090/4090 (24 GB VRAM) |
+| CPU | Intel i7-9700 / AMD Ryzen 7 3700X | Intel i9-13900K / AMD Ryzen 9 7950X |
+| RAM | 32 GB | 64 GB |
+| Storage | 512 GB NVMe SSD | 1 TB NVMe SSD (USD assets are large) |
+| OS | Ubuntu 20.04/22.04 LTS | Ubuntu 22.04 LTS |
+| Drivers | NVIDIA Driver 515+, CUDA 11.7+ | NVIDIA Driver 535+, CUDA 12.0+ |
+
+### Jetson Orin Deployment Hardware
+
+| Component | Jetson Orin NX (16 GB) | Jetson Orin AGX (64 GB) |
+|---|---|---|
+| GPU | 1024 CUDA cores, 32 Tensor Cores | 2048 CUDA cores, 64 Tensor Cores |
+| CPU | 8-core ARM Cortex-A78AE | 12-core ARM Cortex-A78AE |
+| Memory | 16 GB LPDDR5 (unified) | 64 GB LPDDR5 (unified) |
+| AI Performance | 100 TOPS (INT8) | 275 TOPS (INT8) |
+| Power | 10-25 W | 15-60 W |
+| Price | ~$399 | ~$1,999 |
+| Camera Interfaces | 2x MIPI CSI-2 | 12x MIPI CSI-2 |
+| Networking | Gigabit Ethernet, Wi-Fi | 10 GbE, Wi-Fi |
+
+### Camera Hardware for VSLAM
+
+For visual SLAM, stereo cameras or RGB-D cameras are preferred:
+
+- **Intel RealSense D435i**: Stereo depth + IMU, USB 3.0, 640x480 @ 90 FPS depth, ~$260.
+- **OAK-D Pro**: Stereo + on-device DNN inference, USB 3.0/CSI, ~$349.
+- **Livox Mid-360**: 3D LiDAR, useful for LiDAR SLAM hybrid approaches, ~$599.
+
+---
+
+## Performance Benchmarks
+
+### Isaac Sim Rendering Performance
+
+| GPU | RT Cores | Resolution | Ray Tracing Quality | FPS |
+|---|---|---|---|---|
+| RTX 2070 | 40 | 1280x720 | Medium | 15-25 |
+| RTX 3090 | 82 | 1920x1080 | High | 30-50 |
+| RTX 4090 | 128 | 1920x1080 | Ultra | 50-80 |
+| RTX 4090 | 128 | 3840x2160 | Ultra | 20-35 |
+
+### Isaac ROS Inference Latency
+
+| Package | Model | Input Size | RTX 3090 (ms) | Jetson Orin NX (ms) | Jetson Orin AGX (ms) |
+|---|---|---|---|---|---|
+| `dnn_inference` | PeopleNet | 640x512 | 3.2 | 12.5 | 7.8 |
+| `detectnet` | YOLOv8 | 640x640 | 4.1 | 18.2 | 10.5 |
+| `visual_slam` | ORB SLAM | 640x480 | 8.5 | 35.0 | 18.0 |
+| `nvblox` | Depth Voxel | 640x480 | 5.0 | 22.0 | 12.0 |
+| `depth_estimation` | StereoNet | 640x480 | 6.8 | 28.0 | 15.5 |
+
+### Synthetic Data Generation Throughput
+
+| Scene Complexity | RTX 3090 | RTX 4090 |
+|---|---|---|
+| Simple (10 objects, basic lighting) | 850 frames/min | 1,400 frames/min |
+| Moderate (50 objects, ray tracing) | 320 frames/min | 580 frames/min |
+| Complex (200+ objects, full RT + denoising) | 85 frames/min | 165 frames/min |
+
+*Note: Benchmarks are approximate and vary with scene complexity, rendering settings, annotator configuration, and system load. Run your own benchmarks for your specific use case.*
+
+---
+
+## Practical Lab
 
 <div className="lab-box">
-<h3>Lab: choose the compute plan</h3>
-<p>Create a compute plan for a VSLAM-enabled robot lab. Decide what runs on the workstation, what can run in the cloud, and what must run locally on Jetson hardware.</p>
+<h3>Lab: Build a Complete Isaac ROS Navigation Stack</h3>
+
+**Objective**: Configure and run a full Isaac ROS perception-to-navigation pipeline in Isaac Sim.
+
+**Steps**:
+
+1. **Scene Setup**: Load a warehouse environment USD scene in Isaac Sim with a differential-drive robot equipped with a stereo camera and LiDAR.
+2. **Sensor Configuration**: Attach an RGB camera (640x480 @ 30 FPS), a depth sensor (640x480 @ 30 FPS), and a 2D LiDAR (scan topic at 10 Hz) to the robot.
+3. **VSLAM Launch**: Start `isaac_ros_visual_slam` with the stereo camera and IMU inputs. Verify TF tree shows `map → odom → base_link`.
+4. **Mapping**: Use NVBLOX or `slam_toolbox` to build a 3D/2D map of the environment. Save the map.
+5. **Nav2 Configuration**: Load the Nav2 parameter file, configure costmaps, planner, and controller. Test with `rviz2` goal poses.
+6. **Recovery Behaviors**: Deliberately block the planned path. Observe and document the robot's recovery behavior sequence.
+7. **Performance Measurement**: Record inference latency, CPU/GPU utilization, and navigation success rate across 10 navigation goals.
+
+**Deliverable**: A written lab report with parameter files, screenshots of the TF tree, costmap visualization, and a performance table.
 </div>
+
+---
 
 ## Quiz
 
-### Check your understanding
+### Check Your Understanding
 
-1. Why does Isaac Sim usually require RTX-class hardware?
-1. What does VSLAM estimate?
-1. Why is cloud-to-real robot control dangerous?
-1. What is domain gap?
+1. Why does Isaac Sim require RTX-class GPU hardware?
+1. What is the role of USD (Universal Scene Description) in Isaac Sim?
+1. Name three domain randomization techniques used in synthetic data generation.
+1. Why must real-time robot control never be routed through cloud infrastructure?
+1. What is the difference between VSLAM and pure visual odometry?
+1. Which Isaac ROS package provides GPU-accelerated 3D occupancy mapping?
+1. What TensorRT optimization technique reduces model precision from FP32 to FP16 for faster inference?
+1. Describe the minimum Jetson hardware for deploying a real-time VSLAM + Nav2 stack.
+1. What is "domain gap" and how can domain randomization help reduce it?
+1. In Nav2, what is the difference between the global planner and the local planner?
 
-### Answer key
+### Answer Key
 
-1. It uses demanding simulation and rendering workloads that depend on GPU and VRAM capacity.
-1. The robot's visual pose and map of the environment.
-1. Network latency and interruptions can make physical motion unsafe.
-1. The mismatch between simulated training data and real-world conditions.
+1. Isaac Sim uses demanding rendering workloads including ray tracing, physically based materials, and real-time physics simulation that depend on RTX ray-tracing cores and significant GPU VRAM (8-24 GB).
+1. USD is the scene description format that stores robot models, environments, sensors, and physics properties as composable, non-destructive layers. It enables scene composition, version control, and interoperability across 3D tools.
+1. Common domain randomization techniques include: varying lighting direction/intensity/color, randomizing object textures/materials, randomizing object positions/rotations/scales, adding sensor noise (Gaussian, motion blur, lens distortion), swapping background HDRI environment maps, and varying camera parameters (FOV, exposure).
+1. Network latency (50-200 ms round-trip) and connectivity interruptions create unacceptable delays in the perception-to-action control loop. A brief network outage during motion could cause the robot to collide with obstacles or injure people before a timeout can trigger an emergency stop.
+1. Visual odometry estimates the robot's pose change between consecutive frames (relative motion). VSLAM additionally builds and maintains a global map, performs loop closure to correct drift, and manages a persistent map of the environment over long-duration operation.
+1. `isaac_ros_nvblox` provides GPU-accelerated 3D occupancy grid mapping from depth and LiDAR data.
+1. FP16 (half-precision) quantization reduces model memory footprint by ~50% and increases inference throughput by 2-3x on TensorRT-compatible GPUs with minimal accuracy loss. INT8 quantization provides further speedup but requires calibration data.
+1. Minimum deployment: Jetson Orin NX (16 GB unified memory), stereo camera (e.g., RealSense D435i), LiDAR (optional), SSD storage for map data. Recommended: Jetson Orin AGX (64 GB) for more complex scenes and multiple simultaneous DNN inference tasks.
+1. Domain gap is the mismatch between simulated training data and real-world conditions (lighting, textures, camera noise, object variation). Domain randomization forces the model to learn features that are invariant to these variations, improving generalization to real-world inputs.
+1. The global planner computes the shortest obstacle-free path from the robot's current pose to the goal across the entire map (using algorithms like A*, Dijkstra, or NavFn). The local planner computes a short-horizon trajectory segment that avoids dynamic obstacles and respects the robot's kinematic constraints (using algorithms like DWB, TEB, or MPPI).
 
-## Safety and hardware notes
+---
+
+## Glossary
+
+| Term | Definition |
+|---|---|
+| **Omniverse** | NVIDIA's multi-GPU real-time simulation and rendering platform that serves as the foundation for Isaac Sim. |
+| **USD (Universal Scene Description)** | Pixar's open-source scene description format used by Omniverse for hierarchical, composable 3D scene data. |
+| **PhysX** | NVIDIA's physics engine supporting rigid body dynamics, articulations, soft bodies, and particles. |
+| **RTX** | NVIDIA's real-time ray-tracing GPU architecture with dedicated RT Cores for ray-triangle intersection and Tensor Cores for AI inference. |
+| **TensorRT** | NVIDIA's deep learning inference optimizer and runtime that applies layer fusion, precision calibration (FP16/INT8), and kernel auto-tuning. |
+| **VSLAM (Visual SLAM)** | Visual Simultaneous Localization and Mapping — algorithms that estimate robot pose and construct environment maps using camera input. |
+| **Visual Odometry** | Estimation of robot motion between consecutive camera frames (relative pose change), without maintaining a global map. |
+| **Bundle Adjustment** | Joint optimization of camera poses and 3D landmark positions by minimizing reprojection error across multiple frames. |
+| **Nav2 (Navigation 2)** | The standard ROS 2 navigation framework providing global/local planning, costmaps, controllers, and recovery behaviors. |
+| **AMCL (Adaptive Monte Carlo Localization)** | A particle filter-based algorithm for 2D robot localization against a known map. |
+| **Costmap** | A 2D or 3D grid representing obstacle occupancy and distance information used for path planning. |
+| **ESDF (Euclidean Signed Distance Field)** | A volumetric representation where each voxel stores the signed distance to the nearest obstacle surface. |
+| **Domain Randomization** | The technique of varying simulation parameters (lighting, textures, positions) during training to improve sim-to-real transfer. |
+| **Domain Gap** | The discrepancy between characteristics of simulated training data and real-world data. |
+| **Sim-to-Real Transfer** | The process of deploying models trained in simulation to physical hardware, requiring techniques to bridge domain gap. |
+| **Jetson Orin** | NVIDIA's edge AI computing platform for robotics, available in Orin NX (16 GB) and Orin AGX (64 GB) variants. |
+| **TOPS (Tera Operations Per Second)** | A measure of AI inference performance; Jetson Orin AGX delivers 275 TOPS for INT8 workloads. |
+| **TensorRT Engine** | An optimized inference binary generated by TensorRT from an ONNX or Caffe model, tuned for specific GPU hardware. |
+| **ROS 2 (Robot Operating System 2)** | The open-source robotics middleware providing communication (topics, services, actions), device drivers, and development tools. |
+| **TF (Transform)** | ROS 2's transform library that manages coordinate frame relationships between robot components and world frames. |
+| **URDF (Unified Robot Description Format)** | An XML format for describing robot models, including links, joints, visual/collision geometry, and kinematic chains. |
+| **ONNX (Open Neural Network Exchange)** | An open format for representing machine learning models, enabling interoperability between training frameworks and inference runtimes. |
+| **cuDNN** | NVIDIA's CUDA Deep Neural Network library providing optimized primitives for convolution, pooling, normalization, and activation layers. |
+
+---
+
+## Safety and Hardware Notes
 
 <div className="safety-box">
-<h3>Latency rule</h3>
-<p>Use cloud resources for training, simulation, and batch processing. Keep real-time physical control local whenever motion safety depends on fast feedback.</p>
+<h3>Latency Rule — Critical for Physical Safety</h3>
+<p>Use cloud resources for training, simulation, and batch data processing. Keep real-time physical control local on the robot's onboard compute (Jetson Orin or equivalent). Network latency and interruptions can make physical motion unsafe. The control loop (perception → planning → actuation) must execute at consistent frequency (10-30 Hz) without dependency on network connectivity.</p>
 </div>
 
+<div className="safety-box">
+<h3>GPU VRAM Budget</h3>
+<p>Monitor GPU memory usage carefully. Isaac Sim with a complex scene, a DNN inference model, and VSLAM running simultaneously can consume 16-20 GB of VRAM. On Jetson Orin NX (16 GB unified), the GPU shares memory with the CPU. Reduce model precision (FP16), lower resolution, or reduce scene complexity if memory pressure causes out-of-memory errors.</p>
+</div>
 
+<div className="safety-box">
+<h3>Thermal Management</h3>
+<p>Jetson Orin devices under sustained load generate significant heat. Ensure adequate cooling (heatsink + fan) and monitor thermal throttling. A throttled Jetson can lose 30-50% of peak inference performance, causing missed deadlines in real-time navigation.</p>
+</div>

@@ -1,0 +1,68 @@
+- generic [ref=e2]:
+  - region "Skip to main content":
+    - link "Skip to main content" [ref=e3] [cursor=pointer]:
+      - /url: "#__docusaurus_skipToContent_fallback"
+  - navigation "Main" [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - link "Physical AI Textbook mark PHYSICAL AI" [ref=e7] [cursor=pointer]:
+          - /url: /humanoid-textbook/
+          - img "Physical AI Textbook mark" [ref=e9]
+          - generic [ref=e10]: PHYSICAL AI
+        - link "Textbook" [ref=e11] [cursor=pointer]:
+          - /url: /humanoid-textbook/docs/intro/
+        - link "Foundations" [ref=e12] [cursor=pointer]:
+          - /url: /humanoid-textbook/docs/foundations/physical-ai-and-embodiment/
+        - link "Capstone Studio" [ref=e13] [cursor=pointer]:
+          - /url: /humanoid-textbook/docs/capstone/autonomous-humanoid/
+      - generic [ref=e14]:
+        - link "Source(opens in new tab)" [ref=e15] [cursor=pointer]:
+          - /url: https://github.com/marjan-ahmed/humanoid-textbook
+          - text: Source
+          - img "(opens in new tab)" [ref=e16]
+        - button "Switch between dark and light mode (currently system mode)" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+  - main [ref=e23]:
+    - generic [ref=e25]:
+      - heading "Page Not Found" [level=1] [ref=e26]
+      - paragraph [ref=e27]: We could not find what you were looking for.
+      - paragraph [ref=e28]: Please contact the owner of the site that linked you to the original URL and let them know their link is broken.
+  - contentinfo [ref=e29]:
+    - text: FIELD MANUAL / PHYSICAL AI / HUMANOID ROBOTICS / SIMULATION FIRST
+    - generic [ref=e30]:
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]: READING PATH
+          - list [ref=e34]:
+            - listitem [ref=e35]:
+              - link "Start Reading" [ref=e36] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/intro/
+            - listitem [ref=e37]:
+              - link "Course Foundations" [ref=e38] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/foundations/physical-ai-and-embodiment/
+            - listitem [ref=e39]:
+              - link "Autonomous Humanoid Capstone" [ref=e40] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/capstone/autonomous-humanoid/
+        - generic [ref=e41]:
+          - generic [ref=e42]: ROBOTICS STACK
+          - list [ref=e43]:
+            - listitem [ref=e44]:
+              - link "ROS 2" [ref=e45] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/ros-2/robotic-nervous-system/
+            - listitem [ref=e46]:
+              - link "Digital Twins" [ref=e47] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/simulation/digital-twins-gazebo-unity/
+            - listitem [ref=e48]:
+              - link "NVIDIA Isaac" [ref=e49] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/nvidia-isaac/ai-robot-brain/
+        - generic [ref=e50]:
+          - generic [ref=e51]: BUILD LOG
+          - list [ref=e52]:
+            - listitem [ref=e53]:
+              - link "Repository(opens in new tab)" [ref=e54] [cursor=pointer]:
+                - /url: https://github.com/marjan-ahmed/humanoid-textbook
+                - text: Repository
+                - img "(opens in new tab)" [ref=e55]
+      - generic [ref=e58]: Physical AI & Humanoid Robotics Field Manual / Built for simulation-first embodied intelligence.
+  - button "Open textbook assistant" [ref=e59] [cursor=pointer]:
+    - generic [ref=e61]: "[]"

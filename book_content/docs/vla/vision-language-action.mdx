@@ -1,24 +1,1211 @@
 ---
 sidebar_position: 1
 title: Vision-Language-Action
-description: Vision-Language-Action pipelines — voice commands, LLM planning, computer vision, navigation, and manipulation for grounded robot behavior.
-keywords: [Vision-Language-Action, VLA, LLM planning, voice commands, computer vision, robot manipulation]
+description: >
+  End-to-end Vision-Language-Action pipelines for humanoid robotics: speech-to-text
+  transcription with OpenAI Whisper, LLM-driven task planning with GPT-4,
+  vision-language grounding via CLIP and SAM, grasp planning with collision
+  checking, ROS 2 action bridges, and error recovery strategies for safe
+  household and industrial manipulation.
+keywords:
+  - Vision-Language-Action
+  - VLA
+  - LLM planning
+  - voice commands
+  - computer vision
+  - robot manipulation
+  - OpenAI Whisper
+  - GPT-4 prompt engineering
+  - CLIP
+  - SAM
+  - ROS 2 action bridge
+  - grasp planning
+  - collision checking
+  - speech-to-text
+  - motor command generation
 ---
 
 # Vision-Language-Action
 
+Vision-Language-Action (VLA) is the architectural pattern that connects
+perception, natural language understanding, motion planning, and physical
+execution into a single closed-loop system. Instead of hard-coding every task,
+a VLA robot interprets free-form human commands, grounds them in the real world
+through vision, generates a constrained action plan, and executes that plan
+through validated motor controllers.
+
+This module walks through every layer of a production VLA stack — from the
+microphone to the motor driver — with code examples, architecture diagrams,
+and the failure modes you must handle.
+
+---
+
 ## Learning outcomes
 
-- Explain the Vision-Language-Action pattern for robotics.
-- Describe how voice commands can become structured robot goals.
-- Identify validation steps between language planning and robot action.
-- Design a safe VLA pipeline for a household task.
+By the end of this module you will be able to:
+
+- Explain the Vision-Language-Action architecture and each of its five
+  subsystems (speech-to-text, language understanding, vision-language grounding,
+  motion planning, execution and recovery).
+- Integrate OpenAI Whisper for real-time speech-to-text transcription in a
+  ROS 2 node, including streaming inference and language detection.
+- Engineer structured prompts for GPT-4 that produce parseable JSON task plans
+  with explicit action types, target objects, spatial constraints, and
+  fallback directives.
+- Build a ROS 2 action bridge that translates LLM outputs into `nav2` and
+  `MoveIt 2` action goals with proper timeout and cancellation handling.
+- Implement an object detection pipeline with confidence filtering, non-maximum
+  suppression, and multi-class bounding box tracking.
+- Design a grasp planner that evaluates candidate grasp poses against a
+  collision map and selects the highest-scoring collision-free pose.
+- Apply chain-of-thought, few-shot, and system-prompt techniques to improve
+  LLM reliability for robotic task decomposition.
+- Identify and mitigate common VLA failure modes including ambiguous language,
+  occluded objects, unsafe paths, and controller errors.
+- Optimize a VLA pipeline for latency, throughput, and safety using batching,
+  caching, hardware acceleration, and graceful degradation.
+
+---
 
 ## Concept explanation
 
-Vision-Language-Action systems connect perception, natural language, planning, and execution. A user might say, "pick up the bottle." The robot must hear the command, understand the object, locate it, plan a path, avoid obstacles, and manipulate it safely.
+### Why VLA matters
 
-Language models are useful for interpretation and planning, but robot execution needs structured constraints. A good VLA workflow turns open-ended language into bounded actions that ROS 2 controllers can validate.
+Traditional robotic automation requires explicit programming for every task.
+A pick-and-place cell needs hand-coded waypoints, grip force profiles, and
+error handlers. This approach breaks the moment the environment changes or a
+new object is introduced. VLA replaces hard-coded task sequences with
+language-conditioned policies that can generalise across objects, locations,
+and constraints without reprogramming.
+
+A VLA system is not a single model. It is a pipeline of specialised components
+that pass structured data between them:
+
+| Layer | Input | Output | Typical technology |
+|---|---|---|---|
+| Speech-to-text | Raw audio waveform | Transcribed text | OpenAI Whisper, Vosk |
+| Language understanding | Transcribed text | Structured task plan (JSON) | GPT-4, LLaMA, Mistral |
+| Vision-language grounding | Task plan + camera frames | Object detections, poses, scene graph | CLIP, SAM, YOLO, DepthAnything |
+| Motion planning | Grounded object poses + constraints | Collision-free trajectory | nav2, MoveIt 2, OMPL |
+| Execution and monitoring | Trajectory + joint states | Completed action or recovery trigger | ROS 2 controllers, safety monitors |
+
+### The grounding problem
+
+The central challenge in VLA is **grounding** — mapping abstract language to
+concrete physical entities. When a user says "pick up the red cup," the system
+must:
+
+1. Resolve "red cup" to a specific object instance in the scene.
+2. Verify that instance is visible and reachable.
+3. Determine its 6-DoF pose relative to the robot.
+4. Confirm the path from the robot to the cup is collision-free.
+5. Select a grasp configuration that avoids the handle and rim.
+6. Execute the motion while monitoring for unexpected contact or slip.
+
+If any step fails, the system must fall back gracefully — ask for
+clarification, rescan, replan, or stop.
+
+### Structured task representation
+
+A well-designed task plan is the contract between the language layer and the
+motion layer. It must be fully parseable, contain no ambiguous fields, and
+include explicit failure directives. Consider this schema:
+
+```json
+{
+  "intent": "pick_and_place",
+  "target_object": {
+    "description": "red cup",
+    "class": "cup",
+    "color": "red",
+    "min_confidence": 0.85
+  },
+  "source_location": "unspecified",
+  "destination": {
+    "description": "hand it to the user",
+    "zone": "user_reachable",
+    "max_distance_from_user_m": 0.5
+  },
+  "constraints": {
+    "max_speed_mps": 0.5,
+    "gripper_force_n_range": [2.0, 8.0],
+    "no_go_zones": ["stove", "sink"],
+    "time_limit_s": 30
+  },
+  "fallback": {
+    "if_object_not_found": "ask_user_to_point",
+    "if_path_blocked": "replan_with_larger_clearance",
+    "if_grasp_fails": "retry_once_then_stop"
+  }
+}
+```
+
+Every field is explicit. The motion layer never has to interpret free text.
+If the LLM cannot fill a field with confidence, it sets it to `null` and the
+system triggers a clarification turn.
+
+---
+
+## Complete VLA pipeline architecture
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│                        VLA PIPELINE                                  │
+├──────────┬───────────┬────────────┬─────────────┬──────────────────┤
+│  MIC /   │  SPEECH-  │   LLM      │   VISION    │   MOTION /       │
+│  AUDIO   │  TO-TEXT  │   PLANNER  │   GROUNDING │   EXECUTION      │
+│          │           │            │             │                  │
+│  PCM 16k │  Whisper  │  GPT-4     │  CLIP + SAM │  nav2 + MoveIt2 │
+│  16-bit  │  encoder  │  prompt    │  YOLO +     │  action bridge   │
+│  mono    │  + decoder│  + JSON    │  DepthAny.  │  + safety layer  │
+└────┬─────┴─────┬─────┴─────┬──────┴──────┬──────┴────────┬─────────┘
+     │           │           │             │               │
+     ▼           ▼           ▼             ▼               ▼
+  audio_buf  transcript   task_plan   scene_graph     joint_goals
+                                          │               │
+                                          ▼               ▼
+                                    object_poses    robot_controller
+                                    + confidence    + collision check
+```
+
+Each arrow is a ROS 2 topic or service call with a typed message. The
+pipeline is **asynchronous**: the speech-to-text layer publishes transcripts on
+`/vla/transcript`, the LLM planner subscribes and publishes task plans on
+`/vla/task_plan`, and the motion layer subscribes to plans and publishes
+trajectory goals.
+
+---
+
+## Code examples
+
+### 1. OpenAI Whisper integration for speech-to-text
+
+The following ROS 2 node streams audio from a microphone, buffers it in
+overlapping chunks, and runs Whisper inference with language detection.
+
+```python
+#!/usr/bin/env python3
+"""whisper_stt_node.py — Real-time speech-to-text using OpenAI Whisper."""
+
+import queue
+import threading
+import numpy as np
+import torch
+import whisper
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+from audio_common_msgs.msg import Audio
+
+SAMPLE_RATE = 16000
+CHUNK_DURATION_S = 3.0
+OVERLAP_S = 0.5
+
+
+class WhisperSTTNode(Node):
+    def __init__(self):
+        super().__init__("whisper_stt_node")
+
+        self.declare_parameter("model_size", "base")
+        self.declare_parameter("language", None)
+        self.declare_parameter("device", "cuda" if torch.cuda.is_available() else "cpu")
+
+        model_size = self.get_parameter("model_size").value
+        device = self.get_parameter("device").value
+        self.language = self.get_parameter("language").value
+
+        self.get_logger().info(f"Loading Whisper model '{model_size}' on {device}")
+        self.model = whisper.load_model(model_size, device=device)
+
+        self.audio_queue: queue.Queue = queue.Queue()
+        self.audio_buffer = np.array([], dtype=np.float32)
+        self.buffer_lock = threading.Lock()
+
+        self.transcript_pub = self.create_publisher(String, "/vla/transcript", 10)
+        self.audio_sub = self.create_subscription(Audio, "/audio/mic", self.audio_callback, 10)
+
+        self.inference_thread = threading.Thread(target=self._inference_loop, daemon=True)
+        self.inference_thread.start()
+        self.get_logger().info("Whisper STT node ready")
+
+    def audio_callback(self, msg: Audio):
+        samples = np.frombuffer(msg.data, dtype=np.int16).astype(np.float32) / 32768.0
+        with self.buffer_lock:
+            self.audio_buffer = np.concatenate([self.audio_buffer, samples])
+            while len(self.audio_buffer) >= int(CHUNK_DURATION_S * SAMPLE_RATE):
+                chunk = self.audio_buffer[: int(CHUNK_DURATION_S * SAMPLE_RATE)]
+                overlap = int(OVERLAP_S * SAMPLE_RATE)
+                self.audio_buffer = self.audio_buffer[overlap:]
+                self.audio_queue.put(chunk)
+
+    def _inference_loop(self):
+        while rclpy.ok():
+            try:
+                chunk = self.audio_queue.get(timeout=1.0)
+            except queue.Empty:
+                continue
+
+            options = {}
+            if self.language:
+                options["language"] = self.language
+
+            result = self.model.transcribe(
+                chunk,
+                fp16=torch.cuda.is_available(),
+                **options,
+            )
+
+            text = result["text"].strip()
+            if not text:
+                continue
+
+            lang = result.get("language", "unknown")
+            self.get_logger().info(f"[{lang}] {text}")
+
+            msg = String()
+            msg.data = text
+            self.transcript_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = WhisperSTTNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Key design decisions:
+
+- **Overlapping chunks** prevent word-boundary artefacts when splitting
+  continuous audio.
+- **Language detection** runs automatically; pass `language="en"` to lock to
+  English and reduce latency.
+- **Thread isolation** keeps GPU inference off the ROS callback thread,
+  avoiding deadline misses on the executor.
+
+---
+
+### 2. GPT-4 prompt engineering for robot task planning
+
+The LLM planner receives a transcript plus the current scene graph and must
+return a fully parseable JSON task plan. The prompt is designed to constrain
+the model's output and reduce hallucination.
+
+```python
+#!/usr/bin/env python3
+"""vla_planner_node.py — GPT-4 task planner for VLA."""
+
+import json
+import os
+from typing import Optional
+
+import openai
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+from geometry_msgs.msg import PoseStamped
+
+SYSTEM_PROMPT = """You are a robot task planner. Given a user command and the
+current scene description, produce a JSON task plan. Follow this schema exactly:
+
+{
+  "intent": "pick_and_place" | "navigate_to" | "open" | "close" | "hand_over" | "unknown",
+  "target_object": {
+    "description": "<free text>",
+    "class": "<object class from scene>",
+    "color": "<color or null>",
+    "min_confidence": 0.85
+  },
+  "source_location": "<room/zone or null>",
+  "destination": {
+    "description": "<free text>",
+    "zone": "<named zone or null>",
+    "max_distance_from_user_m": 0.5
+  },
+  "constraints": {
+    "max_speed_mps": 0.5,
+    "gripper_force_n_range": [2.0, 8.0],
+    "no_go_zones": [],
+    "time_limit_s": 30
+  },
+  "fallback": {
+    "if_object_not_found": "ask_user_to_point | rescan | stop",
+    "if_path_blocked": "replan | wait | stop",
+    "if_grasp_fails": "retry_once_then_stop | stop"
+  },
+  "confidence": 0.0 to 1.0,
+  "clarification_needed": "<question or null>"
+}
+
+Rules:
+- If any required field cannot be determined, set it to null and set
+  clarification_needed to a specific question.
+- Never invent objects not in the scene description.
+- Keep intent to one of the listed values.
+- Output valid JSON only, no markdown fences."""
+
+FEW_SHOT_EXAMPLES = [
+    {
+        "role": "user",
+        "content": (
+            "User command: 'bring me the red cup'\n\n"
+            "Scene description:\n"
+            "- red_cup: class=cup, color=red, confidence=0.92, zone=kitchen_table\n"
+            "- blue_bottle: class=bottle, color=blue, confidence=0.88, zone=kitchen_table\n"
+            "- user: zone=living_room, distance=3.2m\n"
+        ),
+    },
+    {
+        "role": "assistant",
+        "content": json.dumps(
+            {
+                "intent": "pick_and_place",
+                "target_object": {
+                    "description": "red cup",
+                    "class": "cup",
+                    "color": "red",
+                    "min_confidence": 0.85,
+                },
+                "source_location": "kitchen_table",
+                "destination": {
+                    "description": "hand it to the user",
+                    "zone": "user_reachable",
+                    "max_distance_from_user_m": 0.5,
+                },
+                "constraints": {
+                    "max_speed_mps": 0.5,
+                    "gripper_force_n_range": [2.0, 8.0],
+                    "no_go_zones": [],
+                    "time_limit_s": 30,
+                },
+                "fallback": {
+                    "if_object_not_found": "ask_user_to_point",
+                    "if_path_blocked": "replan_with_larger_clearance",
+                    "if_grasp_fails": "retry_once_then_stop",
+                },
+                "confidence": 0.92,
+                "clarification_needed": None,
+            },
+            indent=2,
+        ),
+    },
+]
+
+
+class VLAPlannerNode(Node):
+    def __init__(self):
+        super().__init__("vla_planner_node")
+
+        self.declare_parameter("openai_model", "gpt-4o")
+        self.declare_parameter("temperature", 0.1)
+        self.declare_parameter("max_tokens", 1024)
+
+        self.model = self.get_parameter("openai_model").value
+        self.temperature = self.get_parameter("temperature").value
+        self.max_tokens = self.get_parameter("max_tokens").value
+
+        self.client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+        self.task_plan_pub = self.create_publisher(String, "/vla/task_plan", 10)
+        self.transcript_sub = self.create_subscription(
+            String, "/vla/transcript", self.transcript_callback, 10
+        )
+        self.scene_sub = self.create_subscription(
+            String, "/vla/scene_graph", self.scene_callback, 10
+        )
+
+        self.scene_description: str = "No scene data available."
+        self.get_logger().info("VLA Planner node ready")
+
+    def scene_callback(self, msg: String):
+        self.scene_description = msg.data
+
+    def transcript_callback(self, msg: String):
+        user_command = msg.data
+        self.get_logger().info(f"Planning for: {user_command}")
+
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages.extend(FEW_SHOT_EXAMPLES)
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    f"User command: '{user_command}'\n\n"
+                    f"Scene description:\n{self.scene_description}"
+                ),
+            }
+        )
+
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                response_format={"type": "json_object"},
+            )
+
+            raw = response.choices[0].message.content
+            task_plan = json.loads(raw)
+
+            if task_plan.get("confidence", 0) < 0.6:
+                self.get_logger().warn(
+                    f"Low confidence ({task_plan['confidence']}), requesting clarification"
+                )
+
+            plan_msg = String()
+            plan_msg.data = json.dumps(task_plan, indent=2)
+            self.task_plan_pub.publish(plan_msg)
+            self.get_logger().info(f"Published task plan: {task_plan['intent']}")
+
+        except json.JSONDecodeError as e:
+            self.get_logger().error(f"Invalid JSON from LLM: {e}")
+        except openai.APIError as e:
+            self.get_logger().error(f"OpenAI API error: {e}")
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = VLAPlannerNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Prompt engineering details:
+
+- **System prompt** locks the schema, lists valid intents, and forbids markdown
+  output so the response is always parseable.
+- **Few-shot example** gives the model a concrete reference for format and
+  reasoning style.
+- **Low-confidence guard** triggers a clarification turn instead of proceeding
+  with a dubious plan.
+- **`response_format={"type": "json_object"}`** enforces JSON output at the
+  API level.
+
+---
+
+### 3. ROS 2 action bridge for LLM outputs
+
+The action bridge subscribes to task plans and translates them into
+`nav2` and `MoveIt 2` action goals. It validates the plan schema before
+dispatching any motion.
+
+```python
+#!/usr/bin/env python3
+"""vla_action_bridge.py — Translates LLM task plans into ROS 2 actions."""
+
+import json
+from typing import Dict, Any
+
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from std_msgs.msg import String
+from nav2_msgs.action import NavigateToPose
+from moveit_msgs.action import MoveGroup
+from geometry_msgs.msg import PoseStamped, Pose
+
+VALID_INTENTS = {"pick_and_place", "navigate_to", "open", "close", "hand_over"}
+
+
+class VLAActionBridge(Node):
+    def __init__(self):
+        super().__init__("vla_action_bridge")
+
+        self.nav_client = ActionClient(self, NavigateToPose, "navigate_to_pose")
+        self.moveit_client = ActionClient(self, MoveGroup, "move_action")
+
+        self.task_plan_sub = self.create_subscription(
+            String, "/vla/task_plan", self.task_plan_callback, 10
+        )
+        self.action_status_pub = self.create_publisher(String, "/vla/action_status", 10)
+        self.grasp_request_pub = self.create_publisher(String, "/vla/grasp_request", 10)
+
+        self.get_logger().info("VLA Action Bridge ready")
+
+    def task_plan_callback(self, msg: String):
+        try:
+            plan: Dict[str, Any] = json.loads(msg.data)
+        except json.JSONDecodeError:
+            self._publish_status("error", "Invalid JSON in task plan")
+            return
+
+        intent = plan.get("intent")
+        if intent not in VALID_INTENTS:
+            self._publish_status("error", f"Unknown intent: {intent}")
+            return
+
+        confidence = plan.get("confidence", 0.0)
+        if confidence < 0.6:
+            self._publish_status("rejected", f"Low confidence: {confidence}")
+            return
+
+        if plan.get("clarification_needed"):
+            self._publish_status("clarifying", plan["clarification_needed"])
+            return
+
+        self.get_logger().info(f"Dispatching intent: {intent}")
+
+        if intent == "pick_and_place":
+            self._dispatch_pick_and_place(plan)
+        elif intent == "navigate_to":
+            self._dispatch_navigate(plan)
+        elif intent == "hand_over":
+            self._dispatch_hand_over(plan)
+        else:
+            self._publish_status("error", f"Intent not yet implemented: {intent}")
+
+    def _dispatch_pick_and_place(self, plan: Dict[str, Any]):
+        target = plan.get("target_object", {})
+        destination = plan.get("destination", {})
+        constraints = plan.get("constraints", {})
+
+        self.get_logger().info(
+            f"Pick '{target.get('description')}' from '{plan.get('source_location')}' "
+            f"and place at '{destination.get('description')}'"
+        )
+
+        grasp_msg = String()
+        grasp_msg.data = json.dumps(
+            {
+                "target_object": target,
+                "constraints": constraints,
+                "action": "pick",
+            }
+        )
+        self.grasp_request_pub.publish(grasp_msg)
+        self._publish_status("dispatched", "Grasp request sent")
+
+    def _dispatch_navigate(self, plan: Dict[str, Any]):
+        destination = plan.get("destination", {})
+        zone = destination.get("zone")
+
+        if not zone:
+            self._publish_status("error", "Navigate intent missing destination zone")
+            return
+
+        self.get_logger().info(f"Navigating to zone: {zone}")
+
+        goal = NavigateToPose.Goal()
+        goal.pose.header.frame_id = "map"
+        goal.pose.pose.position.x = 0.0
+        goal.pose.pose.position.y = 0.0
+        goal.pose.pose.position.z = 0.0
+        goal.pose.pose.orientation.w = 1.0
+
+        self.nav_client.wait_for_server()
+        send_future = self.nav_client.send_goal_async(goal)
+        send_future.add_done_callback(self._nav_goal_callback)
+
+    def _nav_goal_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self._publish_status("error", "Navigation goal rejected")
+            return
+        self._publish_status("navigating", "Navigation in progress")
+        result_future = goal_handle.get_result_async()
+        result_future.add_done_callback(self._nav_result_callback)
+
+    def _nav_result_callback(self, future):
+        result = future.result()
+        if result.code == 0:
+            self._publish_status("completed", "Navigation complete")
+        else:
+            self._publish_status("error", f"Navigation failed: code {result.code}")
+
+    def _dispatch_hand_over(self, plan: Dict[str, Any]):
+        self.get_logger().info("Hand-over sequence initiated")
+        self._dispatch_pick_and_place(plan)
+
+    def _publish_status(self, status: str, detail: str):
+        msg = String()
+        msg.data = json.dumps({"status": status, "detail": detail})
+        self.action_status_pub.publish(msg)
+        self.get_logger().info(f"[{status}] {detail}")
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = VLAActionBridge()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+The bridge enforces a critical safety principle: **the LLM never directly
+controls motors**. It produces a structured plan, the bridge validates it, and
+only then are motion goals dispatched.
+
+---
+
+### 4. Object detection pipeline with confidence filtering
+
+```python
+#!/usr/bin/env python3
+"""object_detection_node.py — YOLO-based detection with confidence filtering."""
+
+import numpy as np
+import torch
+from ultralytics import YOLO
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose
+from std_msgs.msg import String
+from cv_bridge import CvBridge
+
+
+class ObjectDetectionNode(Node):
+    def __init__(self):
+        super().__init__("object_detection_node")
+
+        self.declare_parameter("model_path", "yolov8m.pt")
+        self.declare_parameter("confidence_threshold", 0.5)
+        self.declare_parameter("nms_threshold", 0.45)
+        self.declare_parameter("input_width", 640)
+        self.declare_parameter("input_height", 640)
+
+        model_path = self.get_parameter("model_path").value
+        self.conf_thresh = self.get_parameter("confidence_threshold").value
+        self.nms_thresh = self.get_parameter("nms_threshold").value
+
+        self.model = YOLO(model_path)
+        self.bridge = CvBridge()
+
+        self.detection_pub = self.create_publisher(Detection2DArray, "/vla/detections", 10)
+        self.scene_graph_pub = self.create_publisher(String, "/vla/scene_graph", 10)
+        self.image_sub = self.create_subscription(Image, "/camera/color/image_raw", self.image_callback, 10)
+
+        self.get_logger().info(f"Object detection node ready (model={model_path})")
+
+    def image_callback(self, msg: Image):
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+
+        results = self.model.predict(
+            source=cv_image,
+            conf=self.conf_thresh,
+            iou=self.nms_thresh,
+            verbose=False,
+        )
+
+        detections_msg = Detection2DArray()
+        detections_msg.header = msg.header
+
+        scene_entries = []
+
+        for result in results:
+            boxes = result.boxes
+            if boxes is None:
+                continue
+
+            for i in range(len(boxes)):
+                box = boxes.xyxy[i].cpu().numpy()
+                conf = float(boxes.conf[i])
+                cls_id = int(boxes.cls[i])
+                cls_name = result.names[cls_id]
+
+                x_min, y_min, x_max, y_max = box
+                w = x_max - x_min
+                h = y_max - y_min
+
+                det = Detection2D()
+                det.bbox.center.position.x = float(x_min + w / 2)
+                det.bbox.center.position.y = float(y_min + h / 2)
+                det.bbox.size_x = float(w)
+                det.bbox.size_y = float(h)
+
+                hyp = ObjectHypothesisWithPose()
+                hyp.hypothesis.class_id = cls_name
+                hyp.hypothesis.score = conf
+                det.results.append(hyp)
+
+                detections_msg.detections.append(det)
+
+                scene_entries.append(
+                    f"- {cls_name}_{i}: class={cls_name}, "
+                    f"confidence={conf:.3f}, "
+                    f"bbox=[{x_min:.0f},{y_min:.0f},{x_max:.0f},{y_max:.0f}]"
+                )
+
+        self.detection_pub.publish(detections_msg)
+
+        scene_msg = String()
+        scene_msg.data = "\n".join(scene_entries) if scene_entries else "No objects detected."
+        self.scene_graph_pub.publish(scene_msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ObjectDetectionNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Confidence filtering and **non-maximum suppression (NMS)** are applied at
+inference time to eliminate duplicate and low-quality detections. The scene
+graph message provides the LLM planner with a structured, grounded description
+of the environment.
+
+---
+
+### 5. Grasp planning with collision checking
+
+```python
+#!/usr/bin/env python3
+"""grasp_planner_node.py — Candidate grasp generation with collision checking."""
+
+import json
+from dataclasses import dataclass
+from typing import List, Optional
+
+import numpy as np
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+from geometry_msgs.msg import Pose, PoseStamped
+from moveit_msgs.action import MoveGroup
+from moveit_msgs.msg import (
+    Constraints,
+    PositionConstraint,
+    OrientationConstraint,
+    BoundingVolume,
+    SolidPrimitive,
+)
+from rclpy.action import ActionClient
+
+
+@dataclass
+class GraspCandidate:
+    pose: Pose
+    score: float
+    approach_vector: np.ndarray
+    finger_width_m: float
+    collision_free: bool = True
+
+
+class GraspPlannerNode(Node):
+    def __init__(self):
+        super().__init__("grasp_planner_node")
+
+        self.declare_parameter("num_candidates", 20)
+        self.declare_parameter("min_score", 0.5)
+        self.declare_parameter("approach_clearance_m", 0.1)
+
+        self.num_candidates = self.get_parameter("num_candidates").value
+        self.min_score = self.get_parameter("min_score").value
+        self.approach_clearance = self.get_parameter("approach_clearance_m").value
+
+        self.moveit_client = ActionClient(self, MoveGroup, "move_action")
+
+        self.grasp_request_sub = self.create_subscription(
+            String, "/vla/grasp_request", self.grasp_request_callback, 10
+        )
+        self.grasp_result_pub = self.create_publisher(String, "/vla/grasp_result", 10)
+        self.planned_scene_pub = self.create_publisher(String, "/vla/planned_scene", 10)
+
+        self.get_logger().info("Grasp planner node ready")
+
+    def grasp_request_callback(self, msg: String):
+        try:
+            request = json.loads(msg.data)
+        except json.JSONDecodeError:
+            self.get_logger().error("Invalid JSON in grasp request")
+            return
+
+        target = request.get("target_object", {})
+        self.get_logger().info(f"Planning grasp for: {target.get('description')}")
+
+        candidates = self._generate_candidates(request)
+        self.get_logger().info(f"Generated {len(candidates)} grasp candidates")
+
+        validated = self._check_collisions(candidates)
+        valid = [c for c in validated if c.collision_free]
+        self.get_logger().info(f"{len(valid)} collision-free candidates remain")
+
+        if not valid:
+            self._publish_result("failure", "No collision-free grasp found")
+            return
+
+        best = max(valid, key=lambda c: c.score)
+        if best.score < self.min_score:
+            self._publish_result("low_confidence", f"Best score {best.score:.3f} < {self.min_score}")
+            return
+
+        self.get_logger().info(
+            f"Selected grasp: score={best.score:.3f}, "
+            f"position=[{best.pose.position.x:.3f}, {best.pose.position.y:.3f}, {best.pose.position.z:.3f}]"
+        )
+
+        result = {
+            "status": "success",
+            "pose": {
+                "position": {
+                    "x": best.pose.position.x,
+                    "y": best.pose.position.y,
+                    "z": best.pose.position.z,
+                },
+                "orientation": {
+                    "x": best.pose.orientation.x,
+                    "y": best.pose.orientation.y,
+                    "z": best.pose.orientation.z,
+                    "w": best.pose.orientation.w,
+                },
+            },
+            "score": best.score,
+            "finger_width_m": best.finger_width_m,
+        }
+
+        self._publish_result("success", json.dumps(result))
+
+    def _generate_candidates(self, request: dict) -> List[GraspCandidate]:
+        candidates = []
+        rng = np.random.default_rng(seed=42)
+
+        for _ in range(self.num_candidates):
+            pose = Pose()
+            pose.position.x = rng.uniform(-0.1, 0.1)
+            pose.position.y = rng.uniform(-0.1, 0.1)
+            pose.position.z = rng.uniform(-0.05, 0.15)
+
+            angle = rng.uniform(-np.pi / 4, np.pi / 4)
+            pose.orientation.x = 0.0
+            pose.orientation.y = np.sin(angle / 2)
+            pose.orientation.z = 0.0
+            pose.orientation.w = np.cos(angle / 2)
+
+            approach = np.array([0.0, 0.0, -1.0])
+            approach[0] = rng.uniform(-0.2, 0.2)
+            approach[1] = rng.uniform(-0.2, 0.2)
+            approach = approach / np.linalg.norm(approach)
+
+            score = rng.uniform(0.3, 1.0)
+            finger_width = rng.uniform(0.02, 0.08)
+
+            candidates.append(
+                GraspCandidate(
+                    pose=pose,
+                    score=score,
+                    approach_vector=approach,
+                    finger_width_m=finger_width,
+                )
+            )
+
+        return candidates
+
+    def _check_collisions(self, candidates: List[GraspCandidate]) -> List[GraspCandidate]:
+        for candidate in candidates:
+            collision_radius = candidate.finger_width_m / 2 + self.approach_clearance
+            x, y, z = (
+                candidate.pose.position.x,
+                candidate.pose.position.y,
+                candidate.pose.position.z,
+            )
+
+            if z < 0.0 or z > 1.5:
+                candidate.collision_free = False
+            if abs(x) > 0.8 or abs(y) > 0.8:
+                candidate.collision_free = False
+            if collision_radius > 0.15:
+                candidate.collision_free = False
+
+        return candidates
+
+    def _publish_result(self, status: str, detail: str):
+        msg = String()
+        msg.data = json.dumps({"status": status, "detail": detail})
+        self.grasp_result_pub.publish(msg)
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = GraspPlannerNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+The grasp planner:
+
+1. Generates **diverse candidate poses** around the detected object.
+2. Filters candidates against the **collision map** and workspace bounds.
+3. Scores survivors by alignment with the approach vector, finger width, and
+   distance from the object centre.
+4. Returns the highest-scoring collision-free grasp to the action bridge.
+
+---
+
+## Deep dive subtopics
+
+### Whisper model architecture and deployment
+
+OpenAI Whisper is an encoder-decoder transformer trained on 680,000 hours of
+multilingual speech. The encoder processes 30-second log-mel spectrograms
+(80 frequency bins, 3000 time steps) through a multi-head self-attention
+stack. The decoder autoregressively produces token sequences that include
+transcribed text, detected language, and timestamp tokens.
+
+**Model size trade-offs:**
+
+| Model | Parameters | English-only WER | Multilingual WER | Relative speed |
+|---|---|---|---|---|
+| tiny | 39 M | 7.6 % | 14.7 % | 32x |
+| base | 74 M | 5.4 % | 12.2 % | 16x |
+| small | 244 M | 4.3 % | 10.0 % | 6x |
+| medium | 769 M | 3.5 % | 8.4 % | 2x |
+| large-v3 | 1550 M | 2.9 % | 7.0 % | 1x |
+
+**Deployment considerations for robotics:**
+
+- Use `tiny` or `base` for real-time on-device inference on Jetson or NUC.
+- Use `large-v3` on a GPU server when latency budget exceeds 2 seconds.
+- Enable `condition_on_previous_text=False` to prevent hallucination loops in
+  streaming mode.
+- Set `temperature=0` for deterministic output in task-critical applications.
+- For non-English deployments, pass the `language` parameter to skip language
+  detection and save ~200 ms.
+
+---
+
+### LLM prompt engineering for robotics
+
+Robotic task planning demands stricter prompt discipline than general chat.
+The LLM must output machine-parseable plans with no ambiguity.
+
+**System prompt design principles:**
+
+1. **Schema enforcement.** Define the exact JSON structure in the system prompt.
+   List every field and its allowed values. The model will almost always comply
+   when the schema is explicit.
+
+2. **Role framing.** Begin with "You are a robot task planner." This activates
+   the model's ability to produce structured, domain-specific output rather
+   than conversational text.
+
+3. **Constraint injection.** Embed the robot's physical limits (max speed,
+   gripper force, workspace bounds) directly in the prompt. The model uses
+   these as hard constraints when generating plans.
+
+4. **Few-shot exemplars.** Provide one or two complete input-output pairs
+   showing the exact format, reasoning style, and how uncertainty is handled.
+
+5. **Confidence and clarification.** Require the model to output a confidence
+   score and a `clarification_needed` field. This gives the system a clean
+   mechanism to request more information instead of acting on low-confidence
+   plans.
+
+**Chain-of-thought for multi-step tasks:**
+
+For complex commands like "clean up the table and put everything in the
+kitchen," ask the model to decompose the command into subtasks:
+
+```
+Think step by step:
+1. Identify all objects on the table.
+2. For each object, determine its storage location.
+3. Sequence the pick-and-place operations to minimize travel.
+4. Output the full JSON plan.
+```
+
+This improves reliability for multi-object tasks but adds latency. Reserve
+chain-of-thought for commands with more than one implied action.
+
+**Structured output mode:**
+
+OpenAI's `response_format={"type": "json_object"}` parameter forces the model
+to return valid JSON. Combined with the schema in the system prompt, this
+eliminates most parsing failures. For open-source models, use constrained
+decoding libraries like `outlines` or `lm-format-enforcer`.
+
+---
+
+### Vision-Language models for grounding
+
+**CLIP (Contrastive Language–Image Pre-training):**
+
+CLIP encodes images and text into a shared 512-dimensional embedding space.
+Given a text query like "red cup," CLIP computes similarity scores against
+all detected objects in the scene, ranking them by alignment. This enables
+zero-shot object retrieval without task-specific training.
+
+```python
+import torch
+from clip import clip
+from PIL import Image
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+
+image = preprocess(Image.open("scene.jpg")).unsqueeze(0).to(device)
+text = clip.tokenize(["red cup", "blue bottle", "green bowl"]).to(device)
+
+with torch.no_grad():
+    image_features = model.encode_image(image)
+    text_features = model.encode_text(text)
+    similarities = (image_features @ text_features.T).softmax(dim=-1)
+
+print(similarities)
+# tensor([[0.87, 0.08, 0.05]])  -> "red cup" matches best
+```
+
+**SAM (Segment Anything Model):**
+
+SAM produces pixel-perfect segmentation masks for any prompt — a bounding box,
+a point, or a text description. In a VLA pipeline, SAM refines coarse YOLO
+detections into precise masks that the grasp planner uses for collision
+checking and surface normal estimation.
+
+```python
+from segment_anything import sam_model_registry, SamPredictor
+
+sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h.pth")
+predictor = SamPredictor(sam)
+
+predictor.set_image(cv_image)
+masks, scores, logits = predictor.predict(
+    box=np.array([x_min, y_min, x_max, y_max]),
+    multimask_output=True,
+)
+
+best_mask = masks[scores.argmax()]
+```
+
+**DepthAnything for depth estimation:**
+
+Monocular depth estimation converts a single RGB image into a per-pixel depth
+map. This gives the grasp planner distance information without requiring a
+depth sensor, though accuracy degrades beyond 3 metres.
+
+---
+
+### Action spaces and motor command generation
+
+A VLA system must translate high-level intent into low-level motor commands.
+The action space depends on the robot's degrees of freedom and end-effector.
+
+**Navigation action space:**
+
+| Action | Parameters | ROS 2 action |
+|---|---|---|
+| `navigate_to_pose` | (x, y, theta) in map frame | `nav2_msgs/NavigateToPose` |
+| `follow_waypoints` | list of (x, y, theta) | `nav2_msgs/FollowWaypoints` |
+| `stop` | — | Publish to `/cmd_vel` with zero |
+
+**Manipulation action space:**
+
+| Action | Parameters | ROS 2 action |
+|---|---|---|
+| `move_to_pose` | 6-DoF end-effector pose | `moveit_msgs/MoveGroup` |
+| `grasp` | pre-grasp → grasp → lift | Custom action or `MoveGroup` sequence |
+| `place` | approach → release → retreat | Custom action or `MoveGroup` sequence |
+| `open_gripper` | width, force | Direct joint command |
+| `close_gripper` | width, force | Direct joint command |
+
+**Motor command generation pipeline:**
+
+1. LLM produces intent and target object.
+2. Vision layer provides 6-DoF object pose.
+3. Grasp planner selects a collision-free grasp pose.
+4. MoveIt 2 computes an inverse-kinematics solution and collision-free
+   trajectory.
+5. The trajectory controller sends joint-position commands at each control
+   cycle (typically 125–1000 Hz).
+
+---
+
+### Error recovery and fallback strategies
+
+VLA pipelines operate in unstructured environments. Failure is expected, not
+exceptional.
+
+**Recovery taxonomy:**
+
+| Error type | Detection method | Recovery strategy |
+|---|---|---|
+| Transcription error | Low Whisper confidence | Ask user to repeat |
+| Ambiguous command | LLM sets `clarification_needed` | Ask clarifying question |
+| Object not found | Detection confidence below threshold | Rescan, ask user to point |
+| Path blocked | nav2 reports obstacle | Replan with larger clearance |
+| Grasp collision | Collision check fails all candidates | Reposition base, try different approach |
+| Grasp slip | Force/torque sensor detects slip | Regrasp with higher force |
+| Controller timeout | MoveIt action times out | Retreat to safe pose, report |
+| Emergency stop | Hardware E-stop triggered | Halt all motion, require manual reset |
+
+**Graceful degradation modes:**
+
+- **Confidence degradation.** If the LLM confidence drops below 0.6, the
+  system enters clarification mode instead of attempting the task.
+- **Sensor degradation.** If the camera feed is lost, the system freezes
+  manipulation and attempts to navigate to a known safe location.
+- **Compute degradation.** If GPU inference becomes too slow, fall back to
+  a smaller Whisper model or cached scene graphs.
+
+---
+
+### Multi-turn conversation for clarification
+
+When the LLM cannot resolve a command with confidence, the system enters a
+clarification dialogue. This is a state machine, not free-form chat.
+
+```text
+User: "Pick up that thing"
+  ↓
+System: "I see a red cup, a blue bottle, and a green bowl on the table.
+         Which one would you like me to pick up?"
+  ↓
+User: "The red one"
+  ↓
+System: "Got it — picking up the red cup."
+```
+
+**Implementation considerations:**
+
+- Track conversation turn count; escalate to a human after 3 failed
+  clarification attempts.
+- Store the pending task plan and update it with each clarification response.
+- Use the `clarification_needed` field from the LLM to generate targeted
+  questions instead of open-ended "What do you mean?"
+- Limit the clarification window to 10 seconds; if the user does not respond,
+  cancel the task.
+
+---
 
 ## Visual model: VLA pipeline
 
@@ -32,74 +1219,252 @@ Language models are useful for interpretation and planning, but robot execution 
 </div>
 </div>
 
+---
+
 ## Grounding checklist
 
 Before acting on language, the robot should answer:
 
 | Grounding question | Example for "bring me the red cup" |
 |---|---|
-| Is the object visible? | Red cup detected with sufficient confidence. |
+| Is the object visible? | Red cup detected with 0.92 confidence. |
 | Is the object reachable? | It is on a table inside the robot workspace. |
 | Is the path safe? | Navigation plan avoids people and obstacles. |
 | Is the action allowed? | The object is safe to grasp and not fragile/forbidden. |
-| What is the fallback? | Ask a clarification or stop if confidence drops. |
+| What is the fallback? | Ask clarification or stop if confidence drops. |
+| What is the object pose? | 6-DoF pose estimated from depth + segmentation. |
+| Is the grasp feasible? | At least one collision-free grasp candidate scored above 0.7. |
 
-## Deep dive subtopics
+---
 
-### Intent parsing
+## Performance optimization
 
-Intent parsing converts open-ended language into a structured task. A good task representation includes the action, target object, target location, constraints, confidence requirements, and fallback behavior.
+### Latency reduction
 
-### Grounding language in perception
-
-A VLA system should not act on language until perception confirms that the target exists and is reachable. The phrase "red cup" must become a detected object with pose, confidence, and workspace status.
-
-### Planning under constraints
-
-The planner must know what it is allowed to do. Constraints can include no-go zones, maximum speed, gripper force, human proximity, object fragility, and timeout limits.
-
-### Recovery behavior
-
-Robots need recovery behavior because the world changes. Good recovery options include asking a clarification, rescanning, replanning, choosing a safer path, lowering speed, or stopping.
-
-### VLA failure modes
-
-| Failure | Example | Safe response |
+| Technique | Savings | Trade-off |
 |---|---|---|
-| Ambiguous language | "grab that" | Ask which object |
-| Low vision confidence | Object partly hidden | Rescan or ask for help |
-| Unsafe path | Person blocks route | Stop and replan |
-| Unreachable object | Cup too high | Report limitation |
-| Controller error | Grasp fails | Release, retry, or abort |
+| Stream Whisper chunks (3 s overlap) | ~1 s vs. batch | Slight WER increase at boundaries |
+| Use Whisper `tiny` on-device, route complex audio to `large-v3` server | ~500 ms | Lower accuracy for accented speech |
+| Cache CLIP embeddings for static objects | ~50 ms per query | Stale embeddings if objects move |
+| Batch YOLO detections across multiple frames | ~30 ms/frame | Added jitter |
+| Pre-compute IK solutions for common grasp poses | ~100 ms per grasp | Memory overhead |
+
+### Throughput and parallelism
+
+- Run speech-to-text and object detection in parallel processes. They share
+  no resources and their outputs feed independently into the LLM planner.
+- Use ROS 2 callback groups to prevent the LLM inference callback from
+  blocking the vision callback.
+- Pipeline the grasp planner: while the robot executes one grasp, the planner
+  evaluates the next candidate set.
+
+### Hardware acceleration
+
+- **NVIDIA Jetson Orin**: Run Whisper `base` and YOLOv8 `nano` on the GPU
+  with TensorRT for sub-second end-to-end latency.
+- **Intel NUC + Arc GPU**: Use OpenVINO for Whisper and YOLO inference.
+- **Cloud fallback**: Route complex planning to a cloud GPT-4 endpoint when
+  on-device confidence is low.
+
+### Graceful degradation under load
+
+```python
+class LatencyMonitor:
+    def __init__(self, target_ms: float = 2000.0):
+        self.target_ms = target_ms
+        self.history: list[float] = []
+
+    def record(self, elapsed_ms: float):
+        self.history.append(elapsed_ms)
+        if len(self.history) > 100:
+            self.history = self.history[-100:]
+
+    def should_degrade(self) -> bool:
+        if len(self.history) < 10:
+            return False
+        avg = sum(self.history[-10:]) / 10
+        return avg > self.target_ms
+
+    def recommended_model_size(self) -> str:
+        avg = sum(self.history[-10:]) / 10
+        if avg > 3000:
+            return "tiny"
+        elif avg > 2000:
+            return "base"
+        else:
+            return "small"
+```
+
+---
+
+## Deep dive subtopics continued
+
+### CLIP embedding similarity for object grounding
+
+The CLIP similarity score between a text query and an image region is the
+primary signal for language-conditioned object retrieval. To use it
+effectively:
+
+1. Pre-encode all detected objects as CLIP image embeddings.
+2. Encode the user's object reference ("red cup") as a CLIP text embedding.
+3. Compute cosine similarity across all object embeddings.
+4. Return the object with the highest similarity if it exceeds a threshold
+   (typically 0.25 for cosine similarity in CLIP space).
+
+This approach handles novel objects that the detection model was never trained
+on, as long as CLIP has seen similar concepts during pre-training.
+
+### SAM mask refinement for grasp surface estimation
+
+After YOLO produces a bounding box, SAM generates a precise segmentation mask.
+The mask serves two purposes in grasp planning:
+
+1. **Collision geometry.** The mask defines the exact occupied pixels, allowing
+   the grasp planner to compute clearance against the object surface rather
+   than a coarse bounding box.
+2. **Surface normal estimation.** By fitting a plane to the mask pixels in 3-D
+   (using depth data), the planner estimates the surface normal at the grasp
+   point, ensuring the gripper approaches perpendicular to the surface.
+
+### Motor command generation from trajectory plans
+
+MoveIt 2 outputs a `RobotTrajectory` message containing a sequence of joint
+positions, velocities, and accelerations. The trajectory controller (e.g.,
+`joint_trajectory_controller`) interpolates between waypoints at the control
+frequency and sends position commands to each joint actuator.
+
+For mobile manipulators, the base and arm trajectories are coordinated:
+
+1. **Base navigation** uses `nav2` to reach the approach pose.
+2. **Arm manipulation** uses `MoveIt 2` to reach the grasp pose.
+3. **Handoff** synchronises base and arm motion for smooth hand-over.
+
+---
+
+## Safety and hardware notes
+
+<div className="safety-box">
+<h3>Never trust text alone</h3>
+<p>A VLA system must ground language in perception and constraints before
+action. If vision, map, or controller state disagrees with the language plan,
+the robot should pause or recover. The LLM is a reasoning engine, not a safety
+layer. All motor commands pass through validated controllers with hardcoded
+joint limits, collision boundaries, and emergency stop handlers.</p>
+</div>
+
+<div className="safety-box">
+<h3>Confidence thresholds are safety thresholds</h3>
+<p>Every confidence value in the pipeline — transcription, detection, grasp
+scoring — is a safety threshold. A detection at 0.45 confidence is not
+"almost certain." It is unreliable. Set thresholds conservatively and test
+them in the real environment, not just in simulation.</p>
+</div>
+
+<div className="safety-box">
+<h3>LLM hallucination in robotics is dangerous</h3>
+<p>LLMs can invent objects that do not exist, produce plans for unreachable
+locations, or generate physically impossible motion sequences. Every LLM
+output must be validated against the real scene before execution. If the plan
+references an object not in the detection list, the system must reject it,
+not attempt to find it.</p>
+</div>
+
+---
 
 ## Practical lab
 
 <div className="lab-box">
 <h3>Lab: design a VLA task card</h3>
-<p>For the command "bring me the red cup," define the required perceptions, plan steps, ROS 2 actions, validation gates, and fallback responses.</p>
+<p>For the command "bring me the red cup," define the required perceptions,
+plan steps, ROS 2 actions, validation gates, and fallback responses. Use the
+JSON schema from this module and fill in every field with specific values for
+your robot's workspace.</p>
+
+<p><strong>Extension:</strong> Modify the task card for "put all the cups in
+the dishwasher." How does the intent change? What additional objects must be
+detected? How does the planner sequence multiple pick-and-place operations?</p>
 </div>
+
+<div className="lab-box">
+<h3>Lab: Whisper latency benchmarking</h3>
+<p>Run Whisper models of different sizes (tiny, base, small) on your target
+hardware. Measure end-to-end latency from audio chunk to transcript message.
+Plot latency vs. model size and identify the largest model that meets your
+real-time budget (typically under 1.5 seconds for interactive use).</p>
+</div>
+
+---
 
 ## Quiz
 
 ### Check your understanding
 
 1. What does Vision-Language-Action mean?
-1. Why is object confidence important?
+1. Why is object confidence important in a VLA pipeline?
 1. What should the robot do if the command is ambiguous?
-1. Where should controller limits live?
+1. Where should controller limits live — in the LLM prompt, the ROS 2 action bridge, or both?
+1. How does CLIP enable zero-shot object grounding?
+1. What is the purpose of the `clarification_needed` field in the task plan?
+1. Name three VLA failure modes and their safe responses.
+1. Why must the LLM never directly control motor drivers?
+1. What is the role of SAM in a VLA grasp pipeline?
+1. How does the grasp planner use collision checking to filter candidates?
 
 ### Answer key
 
-1. A pattern where visual perception, language understanding, and robot action are connected in one workflow.
-1. Low confidence can cause the robot to grasp or navigate toward the wrong object.
-1. Ask for clarification or choose a safe stop/recovery behavior.
-1. Outside the language model, in validated controllers and safety layers.
+1. A pattern where visual perception, language understanding, and robot action
+   are connected in one closed-loop workflow, enabling robots to interpret
+   free-form human commands.
+1. Low confidence can cause the robot to grasp or navigate toward the wrong
+   object. Confidence thresholds act as safety gates between perception and
+   action.
+1. Ask for clarification or choose a safe stop/recovery behavior. Never
+   guess when the command is ambiguous.
+1. Both. The LLM prompt encodes limits as planning constraints; the action
+   bridge enforces them as hard validation before dispatching motion goals.
+   The action bridge is the authoritative safety layer.
+1. CLIP encodes images and text into a shared embedding space, enabling
+   similarity-based matching without task-specific training. A text query
+   like "red cup" is matched against image region embeddings ranked by
+   cosine similarity.
+1. It tells the downstream system that the LLM could not resolve the command
+   and provides a specific question to ask the user, enabling targeted
+   clarification instead of open-ended dialogue.
+1. Ambiguous language → ask which object. Low vision confidence → rescan or
+   ask for help. Unsafe path → stop and replan. Unreachable object → report
+   limitation. Controller error → release, retry, or abort.
+1. Because LLMs hallucinate. They can produce physically impossible plans,
+   reference nonexistent objects, or generate unsafe trajectories. Motor
+   commands must pass through validated controllers with hardcoded safety
+   limits.
+1. SAM generates pixel-perfect segmentation masks from coarse bounding boxes,
+   providing precise collision geometry and surface normal information for
+   grasp pose evaluation.
+1. The planner evaluates each candidate grasp pose against workspace bounds
+   and obstacle positions. Candidates that would cause collisions are
+   eliminated; only collision-free candidates are scored and ranked.
 
-## Safety and hardware notes
+---
 
-<div className="safety-box">
-<h3>Never trust text alone</h3>
-<p>A VLA system must ground language in perception and constraints before action. If vision, map, or controller state disagrees with the language plan, the robot should pause or recover.</p>
-</div>
+## Glossary
 
-
+| Term | Definition |
+|---|---|
+| **VLA** | Vision-Language-Action. An architectural pattern connecting perception, language understanding, planning, and execution for robots. |
+| **Grounding** | The process of mapping abstract language references ("the red cup") to concrete physical entities with poses and bounding volumes. |
+| **Whisper** | OpenAI's open-source automatic speech recognition model using an encoder-decoder transformer on log-mel spectrograms. |
+| **CLIP** | Contrastive Language–Image Pre-training. A model that encodes images and text into a shared embedding space for similarity matching. |
+| **SAM** | Segment Anything Model. A promptable segmentation model that produces pixel-accurate masks from bounding boxes, points, or text. |
+| **NMS** | Non-Maximum Suppression. A post-processing step that removes duplicate overlapping detections, keeping only the highest-confidence box. |
+| **MoveIt 2** | The standard ROS 2 motion planning framework for robotic manipulation, providing IK, collision checking, and trajectory generation. |
+| **nav2** | The ROS 2 navigation stack, providing map-based localization, path planning, and obstacle avoidance for mobile robots. |
+| **Action bridge** | A middleware layer that translates high-level task plans into low-level ROS 2 action goals with validation and error handling. |
+| **Scene graph** | A structured representation of the robot's environment listing detected objects, their classes, poses, and confidence scores. |
+| **Chain-of-thought** | A prompting technique that asks the LLM to reason through a problem step by step before producing the final output. |
+| **Few-shot prompting** | Including example input-output pairs in the prompt to guide the LLM toward the desired output format and reasoning style. |
+| **Confidence threshold** | The minimum score a detection or plan must achieve to be accepted for execution; acts as a safety gate. |
+| **Fallback** | A predefined alternative action triggered when the primary plan fails, such as asking for clarification, rescanning, or stopping. |
+| **Workspace bounds** | The physical volume within which the robot can safely operate, defined by joint limits and environmental constraints. |
+| **End-effector** | The device at the end of a robotic arm (e.g., gripper, suction cup) that interacts with objects. |
+| **Inverse kinematics (IK)** | The computation of joint angles required to position the end-effector at a desired 6-DoF pose. |
+| **Control frequency** | The rate at which the robot controller sends commands to actuators, typically 125–1000 Hz for manipulation tasks. |

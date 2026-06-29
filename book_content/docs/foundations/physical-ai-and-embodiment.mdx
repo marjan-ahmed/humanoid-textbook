@@ -2,92 +2,178 @@
 sidebar_position: 1
 title: Physical AI and Embodiment
 description: Foundations of embodied intelligence — why AI agents need bodies, sensors, timing, space, force, and feedback to act in the physical world. Core concepts for Physical AI and humanoid robotics.
-keywords: [Physical AI, embodied intelligence, sensors, robotics foundations, physical computing]
+keywords: [Physical AI, embodied intelligence, sensors, robotics foundations, physical computing, state estimation, affordances, feedback loops]
 ---
 
 # Physical AI and Embodiment
 
 ## Learning outcomes
 
-- Define Physical AI and embodied intelligence.
-- Explain how physical laws change AI system design.
+- Define Physical AI and embodied intelligence with technical precision.
+- Explain how physical laws (gravity, friction, inertia, contact) change AI system design.
 - Identify the sensors, constraints, and safety boundaries that shape humanoid robotics.
 - Separate software reasoning from embodied execution.
+- Describe the sense-model-plan-act-verify loop and its failure modes.
+- Understand why simulation must come before physical deployment.
 
 ## Concept explanation
 
-Physical AI describes AI systems that operate in the world rather than only inside digital interfaces. A chatbot can be wrong and revise an answer. A robot can be wrong and hit a table, drop an object, collide with a person, overheat a motor, or fall. That difference changes the design discipline.
+Physical AI describes AI systems that operate in the world rather than only inside digital interfaces. A chatbot can be wrong and revise an answer. A robot can be wrong and hit a table, drop an object, collide with a person, overheat a motor, or fall. That difference changes the design discipline entirely.
 
-Embodied intelligence means intelligence is not isolated in a model. It is distributed across the body, sensors, controllers, environment, timing, and feedback loops. A humanoid robot does not simply "understand" a room. It estimates depth, tracks obstacles, predicts motion, balances its body, plans reachable paths, and checks whether a task is still safe.
+Embodied intelligence means intelligence is not isolated in a model. It is distributed across the body, sensors, controllers, environment, timing, and feedback loops. A humanoid robot does not simply "understand" a room. It estimates depth, tracks obstacles, predicts motion, balances its body, plans reachable paths, and checks whether a task is still safe at every timestep.
+
+The core insight of Physical AI is that the body is not just a container for the brain. The body is part of the intelligence. Sensors provide information that no language model can infer. Actuators impose constraints that no planner can ignore. The environment provides feedback that no simulation can perfectly predict. Physical AI must account for all of these simultaneously.
 
 ## Visual model: the embodied AI loop
 
 <div className="visual-panel">
 <h3>Embodied intelligence is a loop, not a prompt.</h3>
 <div className="visual-flow">
-<div className="flow-step"><span>Sense</span>Camera, depth, LiDAR, IMU, force</div>
-<div className="flow-step"><span>Model</span>Map, pose, objects, affordances</div>
-<div className="flow-step"><span>Plan</span>Goal decomposition and constraints</div>
-<div className="flow-step"><span>Act</span>Navigation, grasping, speech, gesture</div>
-<div className="flow-step"><span>Verify</span>Feedback, failure detection, recovery</div>
+<div className="flow-step"><span>Sense</span>Camera, depth, LiDAR, IMU, force/torque, joint encoders</div>
+<div className="flow-step"><span>Model</span>Pose estimation, object detection, map update, affordance analysis</div>
+<div className="flow-step"><span>Plan</span>Goal decomposition, constraint checking, path planning</div>
+<div className="flow-step"><span>Act</span>Navigation commands, joint trajectories, gripper control, speech</div>
+<div className="flow-step"><span>Verify</span>Feedback comparison, failure detection, recovery behavior</div>
 </div>
 </div>
+
+This loop runs continuously, typically at 10-100 Hz depending on the subsystem. Each iteration must complete within its time budget or the robot risks losing track of its state or colliding with obstacles.
 
 ## Key ideas
 
 <div className="textbook-grid">
-<div className="textbook-card"><h3>State</h3><p>The robot's estimate of itself and the world: pose, velocity, map, objects, task progress.</p></div>
-<div className="textbook-card"><h3>Affordance</h3><p>What the world allows the robot to do: a handle can be pulled, a floor can be walked on, a cup can be grasped.</p></div>
-<div className="textbook-card"><h3>Feedback</h3><p>Sensor signals that confirm whether an action worked or needs correction.</p></div>
-<div className="textbook-card"><h3>Constraint</h3><p>A boundary that keeps action safe: speed, force, reachability, collision zones, battery, latency.</p></div>
+<div className="textbook-card"><h3>State</h3><p>The robot's estimate of itself and the world: pose (position + orientation), velocity, map, detected objects, task progress, and confidence levels. State estimation is never perfect — it is always an approximation with uncertainty.</p></div>
+<div className="textbook-card"><h3>Affordance</h3><p>What the world allows the robot to do: a handle can be pulled, a floor can be walked on, a cup can be grasped, a door can be opened. Affordances depend on the robot's body, capabilities, and current state — not just the object's geometry.</p></div>
+<div className="textbook-card"><h3>Feedback</h3><p>Sensor signals that confirm whether an action worked or needs correction. Feedback closes the loop: without it, the robot is executing blind actions. Types include visual feedback (did the object move?), proprioceptive feedback (did the joint reach the target?), and force feedback (did the grasp succeed?).</p></div>
+<div className="textbook-card"><h3>Constraint</h3><p>A boundary that keeps action safe: speed limits, force limits, reachability, collision zones, battery capacity, network latency, thermal limits, and workspace boundaries. Constraints are hard (never violate) or soft (prefer but allow violation with cost).</p></div>
+<div className="textbook-card"><h3>Uncertainty</h3><p>The gap between what the robot believes and what is actually true. Sources include sensor noise, calibration error, model limitations, environmental changes, and occluded information. Physical AI must reason about uncertainty, not ignore it.</p></div>
+<div className="textbook-card"><h3>Latency</h3><p>The delay between sensing and acting. In robotics, latency is measured in milliseconds and directly impacts safety. A 100ms delay at 1m/s means the robot moves 10cm before it can react to new information.</p></div>
 </div>
 
 ## Worked example: "clean the room"
 
-A person says, "clean the room." A software agent may produce a checklist. A robot must ground the task:
+A person says, "clean the room." A software agent may produce a checklist. A robot must ground the task in physical reality:
 
-| Question | Robot interpretation |
-|---|---|
-| What is a room? | A mapped physical area with boundaries and obstacles. |
-| What counts as clean? | Objects moved to target locations, trash identified, surfaces accessible. |
-| What can be touched? | Only objects the system can classify and manipulate safely. |
-| What can go wrong? | Unknown object, blocked path, low confidence, human enters workspace. |
+| Question | Robot interpretation | Physical constraint |
+|---|---|---|
+| What is a room? | A mapped physical area with boundaries and obstacles | Requires SLAM mapping and boundary detection |
+| What counts as clean? | Objects moved to target locations, trash identified, surfaces accessible | Requires object classification and target placement |
+| What can be touched? | Only objects the system can classify and manipulate safely | Requires confidence threshold and grasp planning |
+| What can go wrong? | Unknown object, blocked path, low confidence, human enters workspace | Requires safety monitoring and recovery behavior |
+| How long will it take? | Depends on room size, object count, navigation speed | Requires time estimation and battery awareness |
+| What if something fails? | Object too heavy, path blocked, sensor occluded | Requires fallback strategies and human notification |
 
-## Deep dive subtopics
-
-### Physical AI vs. software-only AI
+## Deep dive: Physical AI vs. software-only AI
 
 Software-only AI mostly manipulates information: text, images, embeddings, tool calls, database records, and interface state. Physical AI manipulates state in the world. Every output must pass through sensors, actuators, controllers, and safety constraints.
 
-| Software-only AI | Physical AI |
-|---|---|
-| Can revise an answer after a mistake | Must prevent damage before a mistake happens |
-| Works with digital context | Works with noisy, partial sensor data |
-| Latency affects experience | Latency can affect safety |
-| Failure can be a message | Failure may require stopping motion |
+| Dimension | Software-only AI | Physical AI |
+|---|---|---|
+| Error handling | Can revise an answer after a mistake | Must prevent damage before a mistake happens |
+| Data quality | Works with digital context | Works with noisy, partial, occluded sensor data |
+| Latency impact | Latency affects user experience | Latency can affect safety (100ms = 10cm at 1m/s) |
+| Failure mode | Failure can be a message or rollback | Failure may require stopping motion, emergency stop |
+| State management | Stateless or simple session state | Continuous state estimation with uncertainty |
+| Testing | Unit tests, integration tests | Simulation, hardware-in-the-loop, field testing |
+| Cost of failure | Lost time, bad UX | Hardware damage, safety risk, environment impact |
 
-### The reality gap
+## Deep dive: the reality gap
 
 The reality gap is the mismatch between the robot's internal model and the world itself. A table may look clear in the map, but a transparent cup, moving person, reflective surface, or lighting change can break that assumption. Physical AI systems must constantly check whether their state estimate still matches the environment.
 
-### Humanoid-specific constraints
+**Common reality gap sources:**
+
+1. **Sensor noise**: Real sensors produce noisy data. Camera images have compression artifacts, LiDAR has angular resolution limits, IMUs have drift.
+2. **Calibration error**: Sensors may shift slightly from their calibrated positions. A 2-degree camera tilt can cause 10cm position error at 3m distance.
+3. **Lighting variation**: Computer vision models trained on bright scenes may fail in dim rooms, strong shadows, or backlight conditions.
+4. **Physics mismatch**: Simulated friction, mass, and contact may not match real materials. A simulated "grasp" may succeed where a real grasp fails due to surface friction.
+5. **Dynamic environments**: People move, objects shift, doors open and close. The map from 5 minutes ago may be outdated.
+6. **Occlusion**: The robot cannot see everything at once. Objects behind other objects, around corners, or above the camera's field of view are invisible.
+
+## Deep dive: humanoid-specific constraints
 
 Humanoids fit human spaces, but the shape creates difficult constraints:
 
-- **Balance**: A biped must control center of mass while moving.
-- **Reachability**: Arms can only grasp objects inside reachable space.
-- **Field of view**: Cameras do not see everything at once.
-- **Contact uncertainty**: Grasping depends on friction, shape, force, and material.
-- **Social safety**: Human-centered spaces include unpredictable human motion.
+- **Balance**: A biped must control center of mass while moving. Unlike wheeled robots, humanoids are dynamically unstable — they fall if they stop walking without proper stance control.
+- **Reachability**: Arms can only grasp objects inside reachable workspace. The workspace depends on joint limits, body posture, and obstacles.
+- **Field of view**: Cameras do not see everything at once. A humanoid must actively look around by rotating its head or body.
+- **Contact uncertainty**: Grasping depends on friction, shape, force, material, and surface condition. A firm grasp in simulation may slip in reality.
+- **Social safety**: Human-centered spaces include unpredictable human motion. The robot must maintain safe distances, predict human trajectories, and communicate intent.
+- **Energy constraints**: Batteries limit operation time. High-compute tasks (perception, planning) consume more power than basic locomotion.
+- **Degrees of freedom**: A humanoid may have 30+ joints, each requiring coordinated control. Small errors compound: a 1-degree foot error becomes a 5cm hand position error at arm's length.
 
-### Design checklist for embodied tasks
+## Deep dive: sensor taxonomy
 
-1. What state must the robot estimate?
-2. Which sensors provide that state?
-3. What confidence threshold is required before action?
-4. What constraints limit the action?
-5. What feedback confirms success?
-6. What recovery path handles failure?
+| Sensor type | What it measures | Typical use | Limitations |
+|---|---|---|---|
+| RGB Camera | Color images | Object detection, scene understanding | Sensitive to lighting, no depth information |
+| Depth Camera (RealSense D435i) | Per-pixel distance | 3D mapping, obstacle detection | Limited range (~10m), affected by sunlight |
+| LiDAR | Laser distance measurements | Mapping, localization, obstacle detection | Expensive, heavy, affected by rain/dust |
+| IMU (BNO055) | Acceleration, angular velocity | Balance, motion estimation | Drift over time, needs calibration |
+| Force/Torque Sensor | Contact forces | Grasp verification, collision detection | Limited to contact points |
+| Joint Encoder | Joint angle | Proprioception, kinematics | Only measures angle, not force |
+| Microphone | Audio | Voice commands, sound detection | Background noise, speaker identification |
+| Ultrasonic | Distance via sound | Close-range obstacle detection | Low resolution, affected by temperature |
+
+## Deep dive: the sense-model-plan-act cycle in detail
+
+### 1. Sense (Perception Layer)
+
+The perception layer collects raw sensor data and converts it into structured information. This includes:
+
+- **Camera processing**: Object detection (YOLO, RT-DETR), semantic segmentation, depth estimation
+- **LiDAR processing**: Point cloud generation, ground plane detection, obstacle clustering
+- **IMU processing**: Orientation estimation (complementary filter, Kalman filter), drift correction
+- **Sensor fusion**: Combining multiple sensors to reduce uncertainty (Extended Kalman Filter, particle filters)
+
+### 2. Model (State Estimation Layer)
+
+The modeling layer maintains a consistent estimate of the robot's state and environment:
+
+- **Self-localization**: Where am I? (AMCL, VSLAM, visual odometry)
+- **Mapping**: What does the world look like? (occupancy grids, octomaps, feature maps)
+- **Object recognition**: What objects exist and where? (6-DoF pose estimation)
+- **Affordance analysis**: What can I do here? (reachability, graspability, traversability)
+
+### 3. Plan (Decision Layer)
+
+The planning layer converts goals into actionable steps:
+
+- **Task planning**: Breaking high-level goals into subtasks (Behavior Trees, PDDL)
+- **Motion planning**: Finding collision-free paths (RRT*, A*, PRM)
+- **Trajectory planning**: Generating smooth joint trajectories (OMPL, CHOMP)
+- **Constraint checking**: Ensuring plans satisfy safety and physical limits
+
+### 4. Act (Execution Layer)
+
+The execution layer sends commands to actuators:
+
+- **Motor control**: Converting trajectory points to joint torques (PID, impedance control)
+- **Gripper control**: Open/close with force limiting
+- **Locomotion**: Bipedal gait generation and balance maintenance
+- **Speech output**: Communicating status to humans
+
+### 5. Verify (Feedback Layer)
+
+The verification layer checks whether actions achieved their intended effect:
+
+- **Visual verification**: Did the object move as expected?
+- **Proprioceptive verification**: Did the joint reach the target angle?
+- **Force verification**: Is the grasp holding?
+- **Safety monitoring**: Are all constraints still satisfied?
+
+If verification fails, the system triggers recovery behavior: replan, retry with different parameters, ask for help, or emergency stop.
+
+## Design checklist for embodied tasks
+
+1. What state must the robot estimate? (pose, objects, map, task progress)
+2. Which sensors provide that state? (camera, LiDAR, IMU, encoders)
+3. What confidence threshold is required before action? (detection confidence, localization accuracy)
+4. What constraints limit the action? (speed, force, reachability, collision, battery)
+5. What feedback confirms success? (visual, proprioceptive, force)
+6. What recovery path handles failure? (replan, retry, ask, stop)
+7. What is the maximum acceptable latency? (safety-critical vs. best-effort)
+8. What happens if a sensor fails? (degraded mode, emergency stop)
 
 ## Practical lab
 
@@ -95,10 +181,12 @@ Humanoids fit human spaces, but the shape creates difficult constraints:
 <h3>Lab: turn a vague command into a physical task</h3>
 <ol>
 <li>Choose one command: "clean the room", "bring me the red cup", or "inspect the shelf".</li>
-<li>List the sensors required to understand the scene.</li>
-<li>List the actions the robot must perform.</li>
-<li>Define three safety constraints.</li>
-<li>Write one recovery behavior for low confidence or blocked motion.</li>
+<li>List every sensor required to understand the scene (minimum 4 sensors).</li>
+<li>List every action the robot must perform in sequence.</li>
+<li>Define three safety constraints with specific thresholds (e.g., max speed 0.5 m/s, min obstacle distance 0.3m).</li>
+<li>Write one recovery behavior for each of these failure modes: low confidence, blocked path, sensor failure, human enters workspace.</li>
+<li>Estimate the latency budget for each step of the sense-model-plan-act cycle.</li>
+<li>Draw the complete ROS 2 node graph for this task (you will learn the details in the ROS 2 chapter).</li>
 </ol>
 </div>
 
@@ -110,19 +198,40 @@ Humanoids fit human spaces, but the shape creates difficult constraints:
 1. What is the difference between planning and acting?
 1. Name two sensors that help a robot understand physical space.
 1. Why should simulation come before physical deployment?
+1. What is the reality gap and why does it matter?
+1. Explain why a 100ms latency is dangerous for a walking humanoid.
+1. What is an affordance and how does it differ from a geometric property?
 
 ### Answer key
 
-1. Physical AI must handle safety, timing, sensors, uncertainty, and real-world consequences.
-1. Planning proposes steps; acting executes them through controllers under physical constraints.
-1. Examples: depth camera, LiDAR, RGB camera, IMU, force/torque sensor.
-1. Simulation exposes failures without risking people, hardware, or the environment.
+1. Physical AI must handle safety, timing, sensors, uncertainty, and real-world consequences that software-only AI does not face.
+1. Planning proposes steps; acting executes them through controllers under physical constraints. Planning can be revised; acting has physical consequences.
+1. Examples: depth camera (RealSense D435i), LiDAR, RGB camera, IMU (BNO055), force/torque sensor.
+1. Simulation exposes failures without risking people, hardware, or the environment. It allows rapid iteration and testing of edge cases.
+1. The reality gap is the mismatch between simulated and real-world conditions. It matters because behaviors that work in simulation may fail in reality due to noise, friction differences, lighting, and calibration errors.
+1. At 1m/s, 100ms latency means the robot moves 10cm before it can react. For a humanoid, this can cause a fall or collision.
+1. An affordance is what the world allows the robot to do (a handle can be pulled), while a geometric property is just the shape (a cylinder has radius 2cm). Affordances depend on the robot's capabilities, not just the object's form.
 
 ## Safety and hardware notes
 
 <div className="safety-box">
-<h3>Safety boundary</h3>
-<p>Never let high-level language output directly command actuators. Put perception checks, workspace constraints, controller limits, and emergency-stop procedures between the model and motion.</p>
+<h3>Safety boundary — the fundamental rule</h3>
+<p>Never let high-level language output directly command actuators. Put perception checks, workspace constraints, controller limits, and emergency-stop procedures between the model and motion. Every module in this course enforces this boundary. The language model suggests goals; validated controllers decide how those goals become motion.</p>
 </div>
 
+<div className="safety-box">
+<h3>Hardware escalation protocol</h3>
+<p>Move from simulation to edge kits to proxy robots before attempting full humanoid motion. Each step should add only one new risk surface at a time. Never jump from software simulation directly to humanoid hardware.</p>
+</div>
 
+## Glossary
+
+- **Physical AI**: AI systems that operate in the physical world through sensors, actuators, and controllers, as opposed to software-only AI.
+- **Embodiment**: Intelligence distributed across body, sensors, controllers, environment, and feedback loops.
+- **State Estimation**: The process of inferring the robot's current condition from sensor data.
+- **Affordance**: What the world allows the robot to do, determined by the robot's capabilities and the object's properties.
+- **Reality Gap**: The mismatch between simulated conditions and real-world behavior.
+- **Latency**: The delay between sensing and acting, measured in milliseconds.
+- **Uncertainty**: The gap between what the robot believes and what is actually true.
+- **Feedback Loop**: The cycle of sensing, reasoning, acting, and verifying that drives embodied intelligence.
+- **Recovery Behavior**: Automated responses to failures, including replanning, retrying, asking for help, or emergency stopping.

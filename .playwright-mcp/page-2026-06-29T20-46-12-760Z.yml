@@ -1,0 +1,207 @@
+- generic [ref=e2]:
+  - region "Skip to main content":
+    - link "Skip to main content" [ref=e3] [cursor=pointer]:
+      - /url: "#__docusaurus_skipToContent_fallback"
+  - navigation "Main" [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - link "Physical AI Textbook mark PHYSICAL AI" [ref=e7] [cursor=pointer]:
+          - /url: /humanoid-textbook/
+          - img "Physical AI Textbook mark" [ref=e9]
+          - generic [ref=e10]: PHYSICAL AI
+        - link "Textbook" [ref=e11] [cursor=pointer]:
+          - /url: /humanoid-textbook/docs/intro/
+        - link "Foundations" [ref=e12] [cursor=pointer]:
+          - /url: /humanoid-textbook/docs/foundations/physical-ai-and-embodiment/
+        - link "Capstone Studio" [ref=e13] [cursor=pointer]:
+          - /url: /humanoid-textbook/docs/capstone/autonomous-humanoid/
+      - generic [ref=e14]:
+        - link "Source(opens in new tab)" [ref=e15] [cursor=pointer]:
+          - /url: https://github.com/marjan-ahmed/humanoid-textbook
+          - text: Source
+          - img "(opens in new tab)" [ref=e16]
+        - button "Switch between dark and light mode (currently system mode)" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+  - main [ref=e23]:
+    - generic [ref=e24]:
+      - generic "Humanoid robotics course blueprint" [ref=e25]:
+        - img "Humanoid robot schematic connected to course systems" [ref=e26]:
+          - generic [ref=e35]:
+            - generic [ref=e36]: Voice intent
+            - generic [ref=e37]: ROS 2 actions
+            - generic [ref=e38]: VSLAM / Nav2
+            - generic [ref=e39]: Sensors
+            - generic [ref=e40]: Simulation
+        - generic [ref=e41]:
+          - generic [ref=e42]: Capstone target
+          - strong [ref=e43]: Listen - Plan - Navigate - See - Manipulate
+      - generic [ref=e44]:
+        - paragraph [ref=e45]: Physical AI field manual
+        - heading "Teach robots to understand the room, not just the prompt." [level=1] [ref=e46]
+        - paragraph [ref=e47]: "A technical textbook for the jump from AI agents to embodied systems: ROS 2 control, simulation, Isaac workflows, VLA planning, hardware constraints, and an autonomous humanoid capstone."
+        - generic "Course highlights" [ref=e48]:
+          - generic [ref=e49]:
+            - term [ref=e50]: "13"
+            - definition [ref=e51]: week course path
+          - generic [ref=e52]:
+            - term [ref=e53]: "7"
+            - definition [ref=e54]: robotics modules
+          - generic [ref=e55]:
+            - term [ref=e56]: "1"
+            - definition [ref=e57]: humanoid capstone
+        - generic [ref=e58]:
+          - link "Start the textbook" [ref=e59] [cursor=pointer]:
+            - /url: /humanoid-textbook/docs/intro/
+          - link "Inspect the course map" [ref=e60] [cursor=pointer]:
+            - /url: "#course-map"
+    - region "Six systems a humanoid must coordinate before a demo is credible." [ref=e61]:
+      - generic [ref=e62]:
+        - paragraph [ref=e63]: Course map
+        - heading "Six systems a humanoid must coordinate before a demo is credible." [level=2] [ref=e64]
+      - generic [ref=e65]: Core robotics systems / textbook architecture
+      - generic [ref=e66]:
+        - article [ref=e67]:
+          - generic [ref=e68]: EMB
+          - heading "Embodied intelligence" [level=3] [ref=e69]
+          - paragraph [ref=e70]: Why agents need bodies, sensors, timing, space, force, and feedback before they can act in the real world.
+        - article [ref=e71]:
+          - generic [ref=e72]: ROS
+          - heading "Robot middleware" [level=3] [ref=e73]
+          - paragraph [ref=e74]: ROS 2 nodes, topics, services, actions, parameters, launch files, and Python control paths with rclpy.
+        - article [ref=e75]:
+          - generic [ref=e76]: SIM
+          - heading "Digital twin labs" [level=3] [ref=e77]
+          - paragraph [ref=e78]: Gazebo, Unity, URDF, SDF, collision, gravity, depth cameras, LiDAR, IMUs, and testable robot scenes.
+        - article [ref=e79]:
+          - generic [ref=e80]: ISA
+          - heading "Isaac acceleration" [level=3] [ref=e81]
+          - paragraph [ref=e82]: Isaac Sim, Isaac ROS, synthetic data, VSLAM, Nav2, GPU constraints, and sim-to-real transfer habits.
+        - article [ref=e83]:
+          - generic [ref=e84]: VLA
+          - heading "Vision-language-action" [level=3] [ref=e85]
+          - paragraph [ref=e86]: Speech and natural language become bounded robot goals through perception, planning, navigation, and checks.
+        - article [ref=e87]:
+          - generic [ref=e88]: CAP
+          - heading "Humanoid capstone" [level=3] [ref=e89]
+          - paragraph [ref=e90]: A simulated robot listens, plans, navigates, identifies an object, and manipulates it inside one integrated demo.
+    - region "The book follows the signal from speech to physical consequence." [ref=e91]:
+      - generic [ref=e92]:
+        - paragraph [ref=e93]: Learning sequence
+        - heading "The book follows the signal from speech to physical consequence." [level=2] [ref=e94]
+      - generic [ref=e95]:
+        - article [ref=e96]:
+          - generic [ref=e97]: "01"
+          - strong [ref=e98]: Command
+          - paragraph [ref=e99]: Capture intent without trusting language blindly.
+        - article [ref=e100]:
+          - generic [ref=e101]: "02"
+          - strong [ref=e102]: Plan
+          - paragraph [ref=e103]: Convert the goal into bounded robot actions.
+        - article [ref=e104]:
+          - generic [ref=e105]: "03"
+          - strong [ref=e106]: Simulate
+          - paragraph [ref=e107]: Test physics, sensors, scenes, and failure modes first.
+        - article [ref=e108]:
+          - generic [ref=e109]: "04"
+          - strong [ref=e110]: Deploy
+          - paragraph [ref=e111]: Move only validated behavior toward edge hardware.
+    - region "A 13-week route from embodied foundations to a simulated humanoid." [ref=e112]:
+      - generic [ref=e113]:
+        - generic [ref=e114]:
+          - paragraph [ref=e115]: Module deck
+          - heading "A 13-week route from embodied foundations to a simulated humanoid." [level=2] [ref=e116]
+        - generic [ref=e117]:
+          - generic [ref=e118]: Scroll to advance
+          - strong [ref=e119]: Module cards move horizontally as the page moves downward
+        - generic "Course module previews" [ref=e121]:
+          - link "Weeks 1-2 Physical AI Foundations Embodied intelligence, sensors, physical laws, and the shift from software agent to acting system. Open module" [ref=e122] [cursor=pointer]:
+            - /url: /humanoid-textbook/docs/foundations/physical-ai-and-embodiment/
+            - generic [ref=e123]: Weeks 1-2
+            - heading "Physical AI Foundations" [level=3] [ref=e124]
+            - paragraph [ref=e125]: Embodied intelligence, sensors, physical laws, and the shift from software agent to acting system.
+            - emphasis [ref=e126]: Open module
+          - link "Weeks 3-5 ROS 2 Control Layer Nodes, topics, services, actions, launch files, parameters, and Python bridges into robot behavior. Open module" [ref=e127] [cursor=pointer]:
+            - /url: /humanoid-textbook/docs/ros-2/robotic-nervous-system/
+            - generic [ref=e128]: Weeks 3-5
+            - heading "ROS 2 Control Layer" [level=3] [ref=e129]
+            - paragraph [ref=e130]: Nodes, topics, services, actions, launch files, parameters, and Python bridges into robot behavior.
+            - emphasis [ref=e131]: Open module
+          - link "Weeks 6-7 Gazebo and Unity Twins Physics simulation, visual environments, robot descriptions, and sensor testing before hardware risk. Open module" [ref=e132] [cursor=pointer]:
+            - /url: /humanoid-textbook/docs/simulation/digital-twins-gazebo-unity/
+            - generic [ref=e133]: Weeks 6-7
+            - heading "Gazebo and Unity Twins" [level=3] [ref=e134]
+            - paragraph [ref=e135]: Physics simulation, visual environments, robot descriptions, and sensor testing before hardware risk.
+            - emphasis [ref=e136]: Open module
+          - link "Weeks 8-10 NVIDIA Isaac Brain Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, and edge deployment tradeoffs. Open module" [ref=e137] [cursor=pointer]:
+            - /url: /humanoid-textbook/docs/nvidia-isaac/ai-robot-brain/
+            - generic [ref=e138]: Weeks 8-10
+            - heading "NVIDIA Isaac Brain" [level=3] [ref=e139]
+            - paragraph [ref=e140]: Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, and edge deployment tradeoffs.
+            - emphasis [ref=e141]: Open module
+          - link "Week 13 Conversational Robotics Voice-to-action workflows that turn natural language into grounded, validated robot movement. Open module" [ref=e142] [cursor=pointer]:
+            - /url: /humanoid-textbook/docs/vla/vision-language-action/
+            - generic [ref=e143]: Week 13
+            - heading "Conversational Robotics" [level=3] [ref=e144]
+            - paragraph [ref=e145]: Voice-to-action workflows that turn natural language into grounded, validated robot movement.
+            - emphasis [ref=e146]: Open module
+    - region "The capstone is not a page of theory. It is a robot workflow under constraints." [ref=e147]:
+      - paragraph [ref=e148]: Final studio
+      - heading "The capstone is not a page of theory. It is a robot workflow under constraints." [level=2] [ref=e149]
+      - paragraph [ref=e150]: "Students design a simulated humanoid that receives a voice command, plans a path, avoids obstacles, identifies an object, and manipulates it. The book keeps the engineering boundaries visible: simulation first, local control for physical motion, and safety notes at every hardware edge."
+      - link "Preview the capstone" [ref=e151] [cursor=pointer]:
+        - /url: /humanoid-textbook/docs/capstone/autonomous-humanoid/
+  - contentinfo [ref=e152]:
+    - text: FIELD MANUAL / PHYSICAL AI / HUMANOID ROBOTICS / SIMULATION FIRST
+    - generic [ref=e153]:
+      - generic [ref=e154]:
+        - generic [ref=e155]:
+          - generic [ref=e156]: READING PATH
+          - list [ref=e157]:
+            - listitem [ref=e158]:
+              - link "Start Reading" [ref=e159] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/intro/
+            - listitem [ref=e160]:
+              - link "Course Foundations" [ref=e161] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/foundations/physical-ai-and-embodiment/
+            - listitem [ref=e162]:
+              - link "Autonomous Humanoid Capstone" [ref=e163] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/capstone/autonomous-humanoid/
+        - generic [ref=e164]:
+          - generic [ref=e165]: ROBOTICS STACK
+          - list [ref=e166]:
+            - listitem [ref=e167]:
+              - link "ROS 2" [ref=e168] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/ros-2/robotic-nervous-system/
+            - listitem [ref=e169]:
+              - link "Digital Twins" [ref=e170] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/simulation/digital-twins-gazebo-unity/
+            - listitem [ref=e171]:
+              - link "NVIDIA Isaac" [ref=e172] [cursor=pointer]:
+                - /url: /humanoid-textbook/docs/nvidia-isaac/ai-robot-brain/
+        - generic [ref=e173]:
+          - generic [ref=e174]: BUILD LOG
+          - list [ref=e175]:
+            - listitem [ref=e176]:
+              - link "Repository(opens in new tab)" [ref=e177] [cursor=pointer]:
+                - /url: https://github.com/marjan-ahmed/humanoid-textbook
+                - text: Repository
+                - img "(opens in new tab)" [ref=e178]
+      - generic [ref=e181]: Physical AI & Humanoid Robotics Field Manual / Built for simulation-first embodied intelligence.
+  - generic:
+    - button "Close textbook assistant" [ref=e185]
+    - region "Physical AI textbook assistant" [ref=e186]:
+      - generic [ref=e187]:
+        - generic [ref=e188]:
+          - paragraph [ref=e189]: Grounded assistant
+          - heading "Textbook copilot" [level=2] [ref=e190]
+        - generic [ref=e191]:
+          - button "New thread" [ref=e192] [cursor=pointer]
+          - button "Close" [ref=e193] [cursor=pointer]
+      - generic [ref=e194]:
+        - generic [ref=e195]: Qdrant retrieval
+        - generic [ref=e196]: Gemini responses
+        - generic [ref=e197]: Course citations
+      - generic [ref=e198]:
+        - generic "Course assistant chat":
+          - generic:
+            - iframe

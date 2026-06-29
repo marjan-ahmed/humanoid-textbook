@@ -1,34 +1,92 @@
 ---
 sidebar_position: 1
-title: The Robotic Nervous System
-description: ROS 2 nodes, topics, services, actions, launch files, parameters, and Python control paths with rclpy. The communication middleware for humanoid robotics.
-keywords: [ROS 2, Robot Operating System, nodes, topics, services, actions, rclpy, robot middleware]
+title: The Robotic Nervous System — ROS 2 Communication Architecture
+description: >
+  Deep technical reference for ROS 2 nodes, topics, services, actions, launch files,
+  parameters, DDS middleware, QoS policies, lifecycle nodes, component composition,
+  security (SROS2), and cross-compilation for NVIDIA Jetson platforms. Python rclpy
+  examples with publisher/subscriber, service client/server, action client/server,
+  launch file authoring, and parameter configuration. Designed for RAG chatbot
+  retrieval of specific ROS 2 facts and patterns for humanoid robotics.
+keywords:
+  [
+    ROS 2,
+    Robot Operating System,
+    rclpy,
+    nodes,
+    topics,
+    services,
+    actions,
+    DDS,
+    Data Distribution Service,
+    QoS,
+    Quality of Service,
+    lifecycle nodes,
+    component composition,
+    SROS2,
+    security,
+    launch files,
+    parameters,
+    Jetson,
+    cross-compilation,
+    middleware,
+    publish subscribe,
+    request reply,
+    actionlib,
+    robot middleware,
+  ]
 ---
 
 # The Robotic Nervous System
 
 ## Learning outcomes
 
-- Explain the role of ROS 2 in robot control.
-- Distinguish nodes, topics, services, and actions.
-- Describe how Python agents can bridge to ROS controllers through rclpy.
-- Design a basic node graph for a voice-commanded robot.
+- Explain the role of ROS 2 as the communication middleware layer in humanoid robot control architectures.
+- Distinguish the four core communication primitives — topics, services, actions, and parameters — and select the correct one for a given engineering requirement.
+- Describe how Python agents bridge to ROS controllers through the `rclpy` client library.
+- Design a node graph for a voice-commanded humanoid robot with proper topic, service, action, and parameter boundaries.
+- Understand DDS (Data Distribution Service) as the transport layer underneath ROS 2 and how it enables real-time, distributed communication.
+- Configure QoS profiles for sensor data, control commands, and telemetry streams.
+- Use ROS 2 lifecycle nodes to manage startup, shutdown, and error recovery in production systems.
+- Apply ROS 2 component composition to reduce memory overhead and improve inter-node communication speed.
+- Set up ROS 2 security with SROS2 for encrypted and authenticated node-to-node communication.
+- Cross-compile ROS 2 workspaces for NVIDIA Jetson embedded platforms.
 
 ## Concept explanation
 
-ROS 2 is the middleware layer that lets robot software communicate in modular pieces. Instead of one giant program controlling everything, ROS 2 encourages small processes called nodes. Each node has a clear responsibility: read a sensor, estimate pose, plan a path, publish velocity commands, or manage a task.
+ROS 2 is the middleware layer that lets robot software communicate in modular pieces. Instead of one monolithic program controlling every subsystem, ROS 2 encourages small, independent processes called **nodes**. Each node has a single, well-defined responsibility: read a sensor, estimate pose, plan a path, publish velocity commands, or manage a task lifecycle.
 
-For AI-native robotics, ROS 2 is the translation layer between high-level reasoning and robot behavior. A language model may decide that the robot should inspect a shelf, but ROS 2 turns that intent into messages, goals, feedback, and controller interfaces.
+### Why ROS 2 matters for humanoid robotics
+
+Humanoid robots are among the most complex mechatronic systems in existence. A single humanoid may have 30+ degrees of freedom, multiple RGB-D cameras, IMUs, force-torque sensors, LiDAR, microphones, and actuators that must all coordinate in real time. ROS 2 provides the **communication fabric** that makes this coordination tractable:
+
+- **Decoupled design**: Perception, planning, and control nodes can be developed, tested, and deployed independently. A new vision algorithm can replace an old one without modifying the navigation stack.
+- **Language interoperability**: A C++ motion planner can exchange messages with a Python high-level task manager and a Rust safety monitor. ROS 2 IDL (Interface Definition Language) defines message schemas once; code generation tools produce bindings for C++, Python, and other supported languages.
+- **DDS transport**: ROS 2 is built on top of DDS (Data Distribution Service), an ISO-standard pub/sub middleware originally designed for defense and aerospace. DDS provides discovery, reliability, multicast, encryption, and real-time scheduling — capabilities ROS 1 lacked.
+- **Tooling ecosystem**: `ros2` CLI, `colcon` build tool, `rosbag2` recording, `rviz2` visualization, `tf2` coordinate transforms, `nav2` navigation, `MoveIt2` manipulation, and hundreds of community packages.
+
+### The node graph concept
+
+Every running ROS 2 system is a directed graph of nodes connected by edges (topics, services, actions). Tools like `rqt_graph` and `ros2 node list` / `ros2 topic list` let you inspect this graph at runtime. For AI-native robotics, ROS 2 is the translation layer between high-level reasoning and robot behavior. A language model may decide that the robot should inspect a shelf, but ROS 2 turns that intent into messages, goals, feedback, and controller interfaces.
+
+### DDS and the rmiddleware layer
+
+ROS 2 introduces a pluggable middleware layer called **rmiddleware**. By default, ROS 2 uses **CycloneDDS** (Ubuntu) or **Fast DDS** (Windows/macOS), but you can swap implementations without changing application code. The middleware handles:
+
+- **Automatic discovery**: Nodes find each other on the network without a central broker.
+- **Serialization**: Messages are serialized using CDR (Common Data Representation).
+- **Transport**: UDP multicast for discovery, unicast for data. Shared memory transport is available within a single machine for zero-copy performance.
+- **QoS negotiation**: Publishers and subscribers negotiate compatible quality-of-service profiles at connection time.
 
 ## Visual model: ROS 2 communication types
 
 <div className="visual-panel">
 <h3>Choose the communication shape based on the job.</h3>
 <div className="textbook-grid">
-<div className="textbook-card"><h3>Topic</h3><p>Continuous stream. Use for camera frames, odometry, scan data, and status updates.</p></div>
-<div className="textbook-card"><h3>Service</h3><p>Request and response. Use for quick queries such as reset, configure, or get state.</p></div>
-<div className="textbook-card"><h3>Action</h3><p>Long-running goal. Use for navigation, manipulation, docking, or inspection tasks.</p></div>
-<div className="textbook-card"><h3>Parameter</h3><p>Runtime configuration. Use for speed limits, topic names, thresholds, and modes.</p></div>
+<div className="textbook-card"><h3>Topic</h3><p>Continuous stream. Use for camera frames, odometry, scan data, and status updates. Fire-and-forget, many-to-many, decoupled producer/consumer.</p></div>
+<div className="textbook-card"><h3>Service</h3><p>Request and response. Use for quick queries such as reset, configure, get state, or trigger calibration. Synchronous, one-to-one, blocks until reply arrives.</p></div>
+<div className="textbook-card"><h3>Action</h3><p>Long-running goal with feedback. Use for navigation, manipulation, docking, or inspection tasks. Asynchronous, supports cancellation, provides intermediate progress updates.</p></div>
+<div className="textbook-card"><h3>Parameter</h3><p>Runtime configuration. Use for speed limits, topic names, thresholds, and modes. Declare at node startup, modify at runtime via `ros2 param set` or the parameter service.</p></div>
 </div>
 </div>
 
@@ -36,74 +94,815 @@ For AI-native robotics, ROS 2 is the translation layer between high-level reason
 
 <div className="visual-panel">
 <div className="visual-flow">
-<div className="flow-step"><span>Audio node</span>Microphone input</div>
-<div className="flow-step"><span>Speech node</span>Text command</div>
-<div className="flow-step"><span>Planner node</span>Structured goal</div>
-<div className="flow-step"><span>Nav action</span>Move base goal</div>
-<div className="flow-step"><span>Monitor node</span>Feedback and recovery</div>
+<div className="flow-step"><span>Audio node</span>Microphone input → raw PCM</div>
+<div className="flow-step"><span>Speech node</span>PCM → text command via ASR</div>
+<div className="flow-step"><span>Intent node</span>Text → structured goal JSON</div>
+<div className="flow-step"><span>Validation node</span>Goal → constraint check</div>
+<div className="flow-step"><span>Nav action</span>NavigateToPose goal → feedback → result</div>
+<div className="flow-step"><span>Monitor node</span>Feedback, recovery, timeout handling</div>
 </div>
 </div>
 
 ## When to use each primitive
 
-| Need | Best ROS 2 primitive | Example |
-|---|---|---|
-| Publish robot pose many times per second | Topic | `/odom` |
-| Ask if a map is loaded | Service | `/map_server/load_map` |
-| Send robot to a room and track progress | Action | `/navigate_to_pose` |
-| Change max speed for a lab | Parameter | `max_linear_velocity` |
+| Need | Best ROS 2 primitive | Example | Why |
+|---|---|---|---|
+| Publish robot pose many times per second | Topic | `/odom` | High-frequency, lossy-ok, decoupled |
+| Ask if a map is loaded | Service | `/map_server/load_map` | Quick query, needs answer, one-shot |
+| Send robot to a room and track progress | Action | `/navigate_to_pose` | Long-running, needs feedback, cancellable |
+| Change max speed for a lab | Parameter | `max_linear_velocity` | Runtime tuning, no code change needed |
+| Stream camera frames at 30 Hz | Topic | `/camera/color/image_raw` | High bandwidth, subscriber count varies |
+| Trigger sensor calibration | Service | `/imu/calibrate` | Blocking operation, must confirm success |
+| Execute a pick-and-place sequence | Action | `/manipulator/pick_place` | Multi-step, needs intermediate feedback |
+| Toggle debug logging at runtime | Parameter | `debug_enabled` | Instant effect, no restart needed |
+
+## Detailed code examples (Python rclpy)
+
+### Publisher node
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+
+class TalkerNode(Node):
+    """Publishes a string message on the 'chatter' topic at 10 Hz."""
+
+    def __init__(self):
+        super().__init__('talker')
+        self.declare_parameter('publish_rate', 10.0)
+        rate = self.get_parameter('publish_rate').value
+
+        self.publisher_ = self.create_publisher(String, 'chatter', 10)
+        self.timer = self.create_timer(1.0 / rate, self.timer_callback)
+        self.count = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Hello ROS 2 — count: {self.count}'
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.count += 1
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = TalkerNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Subscriber node
+
+```python
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+
+class ListenerNode(Node):
+    """Subscribes to 'chatter' and logs received messages."""
+
+    def __init__(self):
+        super().__init__('listener')
+        self.subscription = self.create_subscription(
+            String,
+            'chatter',
+            self.listener_callback,
+            10  # QoS history depth
+        )
+
+    def listener_callback(self, msg: String):
+        self.get_logger().info(f'I heard: "{msg.data}"')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ListenerNode()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Custom message definition (IDL)
+
+Create a file `msg/HumanoidCommand.msg`:
+
+```
+# HumanoidCommand.msg
+string command_id
+string target_room
+string task_type          # "navigate" | "inspect" | "manipulate"
+float64 confidence        # 0.0 - 1.0
+float64 timeout_sec
+bool allow_recovery
+geometry_msgs/Pose target_pose
+```
+
+Run `colcon build --packages-select my_interfaces` to generate Python and C++ bindings.
+
+### Service server
+
+```python
+import rclpy
+from rclpy.node import Node
+from my_interfaces.srv import GetRobotState
+
+
+class StateServer(Node):
+    """Responds to GetRobotState requests with current robot state."""
+
+    def __init__(self):
+        super().__init__('state_server')
+        self.srv = self.create_service(
+            GetRobotState,
+            'get_robot_state',
+            self.handle_get_state
+        )
+        self.get_logger().info('State server ready.')
+
+    def handle_get_state(self, request, response):
+        self.get_logger().info(f'Request for robot_id={request.robot_id}')
+        response.state = 'idle'
+        response.battery_pct = 87.3
+        response.current_task = 'none'
+        response.is_safe = True
+        return response
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = StateServer()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Service client
+
+```python
+import rclpy
+from rclpy.node import Node
+from my_interfaces.srv import GetRobotState
+
+
+class StateClient(Node):
+    """Sends a GetRobotState request and logs the response."""
+
+    def __init__(self):
+        super().__init__('state_client')
+        self.client = self.create_client(GetRobotState, 'get_robot_state')
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for state service...')
+        self.req = GetRobotState.Request()
+
+    def send_request(self, robot_id: str):
+        self.req.robot_id = robot_id
+        future = self.client.call_async(self.req)
+        future.add_done_callback(self.response_callback)
+
+    def response_callback(self, future):
+        try:
+            result = future.result()
+            self.get_logger().info(
+                f'State: {result.state}, Battery: {result.battery_pct}%, '
+                f'Safe: {result.is_safe}'
+            )
+        except Exception as e:
+            self.get_logger().error(f'Service call failed: {e}')
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = StateClient()
+    node.send_request('humanoid_01')
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Action server (using rclpy.action)
+
+```python
+import time
+import rclpy
+from rclpy.node import Node
+from rclpy.action import Server
+from my_interfaces.action import NavigateToPose
+
+
+class NavActionServer(Node):
+    """Action server that simulates navigation with periodic feedback."""
+
+    def __init__(self):
+        super().__init__('nav_action_server')
+        self._action_server = Server(
+            self,
+            NavigateToPose,
+            'navigate_to_pose',
+            execute_callback=self.execute_callback,
+            feedback_callback=self.feedback_callback,
+            goal_callback=self.goal_callback,
+            cancel_callback=self.cancel_callback,
+        )
+        self.get_logger().info('Nav action server ready.')
+
+    def goal_callback(self, goal_handle):
+        self.get_logger().info(
+            f'Received goal: room={goal_handle.request.target_room}'
+        )
+        return  # accept all goals (return rclpy.action.GOAL_ACCEPT)
+
+    def cancel_callback(self, goal_handle):
+        self.get_logger().info('Cancel requested.')
+        return rclpy.action.CancelResponse.ACCEPT
+
+    def feedback_callback(self, goal_handle, feedback):
+        self.get_logger().info(
+            f'Feedback: distance_remaining={feedback.feedback.distance_remaining:.2f}m'
+        )
+
+    def execute_callback(self, goal_handle):
+        self.get_logger().info('Executing navigation goal...')
+        target_room = goal_handle.request.target_room
+        total_distance = 10.0  # simulated meters
+        feedback_msg = NavigateToPose.Feedback()
+
+        for step in range(1, 11):
+            if goal_handle.is_cancel_requested:
+                goal_handle.canceled()
+                self.get_logger().info('Goal canceled.')
+                return NavigateToPose.Result(success=False, message='Canceled')
+
+            time.sleep(0.5)
+            remaining = total_distance - (step * total_distance / 10)
+            feedback_msg.distance_remaining = remaining
+            goal_handle.publish_feedback(feedback_msg)
+            self.get_logger().info(f'Step {step}/10 — {remaining:.1f}m remaining')
+
+        goal_handle.succeed()
+        result = NavigateToPose.Result()
+        result.success = True
+        result.message = f'Arrived at {target_room}'
+        self.get_logger().info(result.message)
+        return result
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = NavActionServer()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Action client
+
+```python
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from my_interfaces.action import NavigateToPose
+
+
+class NavActionClient(Node):
+    """Sends a navigation goal and monitors feedback and result."""
+
+    def __init__(self):
+        super().__init__('nav_action_client')
+        self._action_client = ActionClient(
+            self,
+            NavigateToPose,
+            'navigate_to_pose'
+        )
+
+    def send_goal(self, target_room: str):
+        self._action_client.wait_for_server()
+        goal = NavigateToPose.Goal()
+        goal.target_room = target_room
+        goal.task_type = 'navigate'
+        goal.timeout_sec = 60.0
+
+        self.get_logger().info(f'Sending goal: {target_room}')
+        future = self._action_client.send_goal_async(
+            goal,
+            feedback_callback=self.feedback_callback
+        )
+        future.add_done_callback(self.goal_response_callback)
+
+    def feedback_callback(self, feedback_msg):
+        fb = feedback_msg.feedback
+        self.get_logger().info(
+            f'Feedback: {fb.distance_remaining:.1f}m remaining'
+        )
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if goal_handle.accepted:
+            self.get_logger().info('Goal accepted.')
+            result_future = goal_handle.get_result_async()
+            result_future.add_done_callback(self.result_callback)
+        else:
+            self.get_logger().warn('Goal rejected.')
+
+    def result_callback(self, future):
+        result = future.result().result
+        self.get_logger().info(
+            f'Result: success={result.success}, message="{result.message}"'
+        )
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = NavActionClient()
+    node.send_goal('kitchen')
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### Launch file (Python)
+
+```python
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch.conditions import IfCondition
+
+
+def generate_launch_description():
+    # Declare parameters
+    use_sim_time_arg = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='false',
+        description='Use simulation clock'
+    )
+    namespace_arg = DeclareLaunchArgument(
+        'namespace',
+        default_value='',
+        description='Node namespace'
+    )
+    debug_arg = DeclareLaunchArgument(
+        'debug',
+        default_value='false',
+        description='Enable debug logging'
+    )
+
+    # Nodes
+    talker_node = Node(
+        package='demo_nodes_cpp',
+        executable='talker',
+        name='talker',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[{
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+            'publish_rate': 20.0,
+        }],
+        remappings=[
+            ('chatter', '/robot/status'),
+        ],
+        output='screen',
+    )
+
+    listener_node = Node(
+        package='demo_nodes_cpp',
+        executable='listener',
+        name='listener',
+        namespace=LaunchConfiguration('namespace'),
+        parameters=[{
+            'use_sim_time': LaunchConfiguration('use_sim_time'),
+        }],
+        remappings=[
+            ('chatter', '/robot/status'),
+        ],
+        output='screen',
+    )
+
+    debug_logger = Node(
+        package='rqt_console',
+        executable='rqt_console',
+        name='debug_console',
+        condition=IfCondition(LaunchConfiguration('debug')),
+        output='screen',
+    )
+
+    return LaunchDescription([
+        use_sim_time_arg,
+        namespace_arg,
+        debug_arg,
+        talker_node,
+        listener_node,
+        debug_logger,
+    ])
+```
+
+### Parameter configuration (YAML file)
+
+Save as `config/robot_params.yaml`:
+
+```yaml
+/**:
+  ros__parameters:
+    use_sim_time: false
+    robot:
+      max_linear_velocity: 0.5
+      max_angular_velocity: 1.0
+      emergency_stop_distance: 0.3
+      battery_warning_pct: 20.0
+    perception:
+      camera_topic: '/camera/color/image_raw'
+      confidence_threshold: 0.75
+      enable_depth: true
+    navigation:
+      planner_plugin: 'NavfnPlanner'
+      controller_plugin: 'DWBController'
+      recovery_behavior_enabled: true
+```
+
+Load with: `ros2 run my_robot_controller node --ros-args --params-file config/robot_params.yaml`
+
+Or declare parameters in code:
+
+```python
+self.declare_parameter('robot.max_linear_velocity', 0.5)
+self.declare_parameter('robot.emergency_stop_distance', 0.3)
+self.declare_parameter('perception.confidence_threshold', 0.75)
+```
 
 ## Deep dive subtopics
 
 ### Node responsibility design
 
-A ROS 2 node should have one clear job. Avoid building a single node that listens to speech, plans a route, reads camera frames, and sends movement commands. That kind of node is hard to test and unsafe to change.
+A ROS 2 node should have one clear job. Avoid building a single node that listens to speech, plans a route, reads camera frames, and sends movement commands. That kind of monolithic node is hard to test, unsafe to change, and impossible to restart independently.
 
-| Node | Responsibility | Example data |
-|---|---|---|
-| Speech node | Converts audio into text | `"go to the kitchen"` |
-| Intent node | Converts text into a structured goal | `{room: "kitchen", task: "navigate"}` |
-| Perception node | Publishes object or scene state | object labels, confidence, poses |
-| Navigation node | Executes path goals | action feedback and result |
-| Safety node | Validates constraints | stop, slow, replan |
+| Node | Responsibility | Example data | Communication |
+|---|---|---|---|
+| Speech node | Converts audio into text | `"go to the kitchen"` | Topic (raw audio), Service (ASR config) |
+| Intent node | Converts text into structured goal | `{room: "kitchen", task: "navigate"}` | Topic (text in), Topic (goal out) |
+| Perception node | Publishes object or scene state | object labels, confidence, poses | Topic (detections), Service (capture) |
+| Navigation node | Executes path goals | action feedback and result | Action (NavigateToPose) |
+| Safety node | Validates constraints, triggers e-stop | stop, slow, replan | Topic (cmd_vel in), Topic (cmd_vel out) |
 
-### Message design
+### Message design principles
 
-Good robot messages are explicit. A vague string like `"clean room"` is convenient for a language model but poor for a robot interface. Prefer structured fields that can be validated: target room, object class, confidence threshold, allowed zones, timeout, and recovery mode.
+Good robot messages are explicit. A vague string like `"clean room"` is convenient for a language model but poor for a robot interface. Prefer structured fields that can be validated:
 
-### Quality of Service basics
+```good
+# Good: explicit, typed, validated
+string command_id
+string target_room
+string task_type        # enumerated values
+float64 confidence      # bounded 0.0-1.0
+float64 timeout_sec     # must be > 0
+bool allow_recovery
+```
 
-ROS 2 Quality of Service policies influence how messages are delivered:
+```bad
+# Bad: ambiguous, unvalidated
+string command
+```
 
-- **Reliable**: Try to deliver every message.
-- **Best effort**: Prefer speed and freshness for sensor streams.
-- **Durability**: Decide whether late subscribers receive previous data.
-- **History depth**: Decide how many messages to keep.
+Use `.msg` files for data and `.srv` files for request/reply. Use `.action` files for long-running goals with feedback and result types.
 
-### Launch files and parameters
+### Quality of Service (QoS) in depth
 
-A serious robot system should not require manually starting every node. Launch files describe how a system starts. Parameters let you change behavior without editing code: speed limits, topic names, thresholds, model paths, and environment settings.
+ROS 2 QoS policies control delivery semantics between publishers and subscribers. They are critical for real-time robot systems.
 
-### Common ROS 2 mistakes
+**Reliability**:
+- `RELIABLE`: Guarantees delivery. Retransmits lost messages. Use for control commands, parameter updates, action goals. Higher latency.
+- `BEST_EFFORT`: No retransmission. Lower latency. Use for sensor streams (LiDAR, camera, IMU) where the latest data matters more than completeness.
 
-- Putting too many responsibilities in one node.
-- Publishing unvalidated AI output as controller-ready data.
-- Ignoring action feedback and result states.
-- Hardcoding topic names and thresholds.
-- Designing demos without timeout or recovery behavior.
+**Durability**:
+- `TRANSIENT_LOCAL`: Late-joining subscribers receive the last N messages (up to history depth). Use for configuration topics, status broadcasts.
+- `VOLATILE`: Late-joiners get nothing. Use for high-frequency sensor data where stale data is harmful.
+
+**History depth**:
+- `KEEP_LAST`: Keep only the N most recent messages (configurable depth). Prevents unbounded queue growth.
+- `KEEP_ALL`: Keep all messages. Can cause memory issues if subscribers are slow.
+
+**Deadline**:
+- Expected maximum interval between messages. If a publisher misses a deadline, subscribers are notified via an event callback. Use for safety-critical monitoring.
+
+**Liveliness**:
+- Automatic or manual assertion that a node is alive. If the liveliness lease expires, subscribers are notified. Use for detecting crashed nodes.
+
+**Example QoS profiles**:
+
+```python
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+# Sensor data QoS (camera, LiDAR)
+sensor_qos = QoSProfile(
+    reliability=ReliabilityPolicy.BEST_EFFORT,
+    durability=DurabilityPolicy.VOLATILE,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=5,
+)
+
+# Control command QoS
+control_qos = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=10,
+)
+
+# Status broadcast QoS
+status_qos = QoSProfile(
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
+    history=HistoryPolicy.KEEP_LAST,
+    depth=1,
+)
+```
+
+**QoS compatibility**: Publishers and subscribers must have compatible QoS policies. Incompatible pairs are silently disconnected. Use `ros2 topic info -v <topic>` to inspect QoS and diagnose connection issues.
+
+### ROS 2 lifecycle nodes
+
+Lifecycle nodes are a special node type (`lifecycle_node`) that implement a standardized state machine for managed nodes. This is essential for production robotics where you need deterministic startup, shutdown, and error recovery.
+
+**States**:
+1. **Unconfigured** — Node is created but not yet configured.
+2. **Inactive** — Node is configured but not processing data.
+3. **Active** — Node is fully operational.
+4. **Finalized** — Node is shutting down.
+5. **Error** — Node encountered an error. Can attempt recovery.
+
+**Transitions**: `configure`, `activate`, `deactivate`, `cleanup`, `shutdown`, `recover`.
+
+**Example lifecycle node**:
+
+```python
+import rclpy
+from rclpy.lifecycle import LifecycleNode, TransitionCallbackReturn
+from std_msgs.msg import String
+
+
+class ManagedSensorNode(LifecycleNode):
+    """Lifecycle-managed sensor node with state transitions."""
+
+    def __init__(self):
+        super().__init__('managed_sensor')
+        self.publisher_ = None
+
+    def on_configure(self, state):
+        self.get_logger().info(f'Configuring from state {state.label}')
+        self.publisher_ = self.create_lifecycle_publisher(String, 'sensor_data', 10)
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state):
+        self.get_logger().info(f'Activating from state {state.label}')
+        # Start sensor hardware, timers, subscriptions here
+        self.timer = self.create_timer(0.1, self.publish_data)
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_deactivate(self, state):
+        self.get_logger().info(f'Deactivating from state {state.label}')
+        self.timer.cancel()
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_cleanup(self, state):
+        self.get_logger().info(f'Cleaning up from state {state.label}')
+        self.publisher_.destroy()
+        self.publisher_ = None
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_shutdown(self, state):
+        self.get_logger().info(f'Shutting down from state {state.label}')
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_error(self, state):
+        self.get_logger().error(f'Error in state {state.label}')
+        return TransitionCallbackReturn.SUCCESS  # attempt recovery
+
+    def publish_data(self):
+        msg = String()
+        msg.data = 'sensor reading'
+        self.publisher_.publish(msg)
+```
+
+**Lifecycle manager** (from `nav2` / `lifecycle` package): automatically triggers transitions across multiple lifecycle nodes in sequence. Essential for orchestrating complex startup sequences.
+
+### Component composition
+
+ROS 2 components let you run multiple nodes inside a single process. This eliminates IPC overhead for tightly-coupled nodes, reduces memory usage, and enables zero-copy intra-process communication.
+
+**Creating a component node**:
+
+```python
+from rclpy.executors import ComponentIsolatedExecutor
+```
+
+The `component` package and `component_ros2` tool let you:
+
+1. Build a node as a shared library (component).
+2. Load components into a container process.
+3. Compose multiple components in one process.
+
+**Launching a component container**:
+
+```bash
+ros2 run rclcpp_components component_container --ros-args -r __node:=my_container
+ros2 component load /my_container my_package my_component::MyNode
+ros2 component list  # list loaded components
+```
+
+**Intra-process communication**: When nodes are in the same container, you can enable intra-process communication for zero-copy message passing. This is critical for high-bandwidth data like point clouds or video streams between perception nodes.
+
+### ROS 2 security (SROS2)
+
+ROS 2 Security provides encryption, authentication, and access control for node communication. It uses DDS-Security, a standard extension to DDS.
+
+**Key features**:
+- **TLS encryption**: All DDS traffic is encrypted in transit.
+- **Authentication**: Nodes must present valid certificates to join the graph.
+- **Access control**: Fine-grained policies control which nodes can publish/subscribe to which topics.
+
+**Setting up SROS2**:
+
+```bash
+# Generate a keystore
+ros2 security create_keystore ~/sros2_keystore
+
+# Create permissions for a node
+ros2 security create_enclave ~/sros2_keystore /my_robot/controller
+
+# Launch with security enabled
+ROS_SECURITY_KEYSTORE=~/sros2_keystore \
+ROS_SECURITY_ENCLAVE=/my_robot/controller \
+ros2 launch my_robot secure_launch.py
+```
+
+**When to use SROS2**: Production humanoid robots operating in untrusted networks, multi-robot systems where message integrity matters, cloud-connected robots where telemetry is sensitive.
+
+### Cross-compilation for Jetson
+
+NVIDIA Jetson (Orin, Xavier, Nano) platforms are the most common embedded targets for humanoid robots. Cross-compilation lets you build ROS 2 packages on an x86 host and deploy to the ARM64 target.
+
+**Using ros_cross_compile**:
+
+```bash
+# Install the cross-compilation tool
+pip install ros-cross-compile
+
+# Cross-compile for Jetson Orin (aarch64)
+ros_cross_compile \
+  --arch aarch64 \
+  --os noble \
+  --ros distro humble \
+  --install-space /opt/ros/humble \
+  --workspace ~/robot_ws
+```
+
+**Docker-based approach**:
+
+```bash
+# Use NVIDIA's l4t container
+docker run -it --runtime=nvidia \
+  -v ~/robot_ws:/robot_ws \
+  nvcr.io/nvidia/l4t-tensorrt:r8.5.2-runtime \
+  bash
+
+# Build inside the container
+cd /robot_ws && colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+**Key considerations**:
+- Use `-DCMAKE_BUILD_TYPE=Release` for optimized binaries.
+- Disable packages that require GUI dependencies (rviz2, rqt) for headless Jetson builds.
+- Use `--packages-select` to build only the packages you need.
+- Test with `ros2 launch` on the target after deployment.
 
 ## Practical lab
 
 <div className="lab-box">
-<h3>Lab: design the ROS graph</h3>
+<h3>Lab: Design the ROS graph</h3>
 <p>Create a node graph for the command: "Go to the kitchen and find the red cup." Include:</p>
 <ul>
-<li>At least three topics.</li>
-<li>At least one service.</li>
-<li>At least one action.</li>
+<li>At least three topics (audio, perception, status).</li>
+<li>At least one service (robot state query or calibration).</li>
+<li>At least one action (NavigateToPose or ManipulateObject).</li>
 <li>A validation node that checks confidence before motion.</li>
+<li>A safety node that can override cmd_vel if obstacles are detected.</li>
+<li>At least two QoS profiles (sensor best-effort, control reliable).</li>
 </ul>
 </div>
+
+## Troubleshooting common ROS 2 issues
+
+### Nodes cannot discover each other
+
+**Symptom**: `ros2 topic list` shows topics but `ros2 topic echo` receives nothing.
+
+**Causes and fixes**:
+- **Network configuration**: DDS uses multicast for discovery. Ensure `localhost` or the correct network interface is selected. Set `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` and configure CycloneDDS XML:
+  ```xml
+  <CycloneDDS>
+    <Domain>
+      <General>
+        <Interfaces>
+          <NetworkInterface name="eth0"/>
+        </Interfaces>
+      </General>
+    </Domain>
+  </CycloneDDS>
+  ```
+- **QoS mismatch**: Use `ros2 topic info -v <topic>` to check QoS. Ensure publishers and subscribers have compatible profiles.
+- **Firewall**: UDP ports 7400-7500 must be open for DDS communication.
+
+### Messages are dropped or not received
+
+**Symptom**: `ros2 topic hz` shows expected frequency but subscriber receives fewer messages.
+
+**Fix**: Check QoS reliability. If the publisher uses `BEST_EFFORT` but the subscriber expects `RELIABLE`, they will not connect. Match profiles or use `ros2 topic info -v` to diagnose.
+
+### Action servers not receiving goals
+
+**Symptom**: Action client sends a goal but never gets a response.
+
+**Fix**: Ensure the action server is running and the action interface names match exactly. Use `ros2 action list` to verify. Check that the action server's `goal_callback` returns an accept response.
+
+### Parameter changes not taking effect
+
+**Symptom**: `ros2 param set` returns success but behavior does not change.
+
+**Fix**: Verify the node declares the parameter and reads it at the correct time. Some parameters are read only at initialization (e.g., timer period). Use `ros2 param dump <node>` to inspect current values.
+
+### Launch file errors
+
+**Symptom**: `ros2 launch` fails with import errors or missing executable.
+
+**Fix**: Ensure the package is built (`colcon build`) and sourced (`source install/setup.bash`). Use `ros2 pkg executables <package_name>` to verify executable names.
+
+## Best practices for production ROS 2
+
+1. **Use lifecycle nodes** for any node that manages hardware or state. This gives you deterministic startup and shutdown sequences.
+2. **Always declare parameters** with defaults. Never assume parameters exist without declaring them.
+3. **Use QoS profiles intentionally**. Sensor data → `BEST_EFFORT` + `VOLATILE`. Control commands → `RELIABLE` + `TRANSIENT_LOCAL`.
+4. **Validate all incoming messages**. Never trust data from other nodes without checking types, ranges, and timestamps.
+5. **Use namespaces** to isolate subsystems. `/robot/perception/camera` is better than `/camera`.
+6. **Record with `rosbag2`** for debugging and regression testing. Use `--qos-profile-overwrite` for mismatched QoS.
+7. **Use `colcon mixin`** for common build configurations: `colcon build --mixin release`.
+8. **Monitor with `ros2 doctor`** to check for common configuration issues.
+9. **Use `tf2` for coordinate transforms**. Never hardcode frame relationships.
+10. **Enable SROS2 in production**. Never run unencrypted DDS on a network with untrusted devices.
+11. **Use `--ros-args` for remapping** instead of hardcoding topic names in code.
+12. **Write node tests** with `launch_testing` and `pytest`. Test each node independently before integration.
+13. **Use `robot_localization`** for sensor fusion rather than custom filtering.
+14. **Profile performance** with `ros2 topic delay` and `ros2 topic hz` before deploying to hardware.
+15. **Document your node graph** with `rqt_graph` screenshots and keep them updated as the system evolves.
 
 ## Quiz
 
@@ -113,19 +912,67 @@ A serious robot system should not require manually starting every node. Launch f
 1. Which primitive is best for a long-running navigation goal?
 1. Why should an AI planner produce structured goals instead of direct motor commands?
 1. What does rclpy allow Python code to do?
+1. What is DDS and why does ROS 2 use it?
+1. What is the difference between `RELIABLE` and `BEST_EFFORT` QoS?
+1. When would you use a lifecycle node instead of a regular node?
+1. What problem does component composition solve?
+1. How do you enable encryption in ROS 2?
+1. What is the correct QoS profile for a control command topic?
+1. Why should you never hardcode topic names in production code?
+1. What tool do you use to inspect QoS compatibility on a topic?
 
 ### Answer key
 
-1. A topic.
-1. An action.
-1. Structured goals can be validated, constrained, monitored, and translated through controllers safely.
-1. It lets Python programs create ROS 2 nodes, publishers, subscribers, services, actions, and parameters.
+1. A topic — high-frequency, decoupled, lossy-ok sensor stream.
+1. An action — long-running, needs feedback, supports cancellation.
+1. Structured goals can be validated, constrained, monitored, and translated through controllers safely. They also enable type checking and runtime parameter tuning.
+1. It lets Python programs create ROS 2 nodes, publishers, subscribers, services, actions, and parameters using the `rclpy` client library.
+1. DDS (Data Distribution Service) is an ISO-standard pub/sub middleware that provides discovery, reliability, multicast, encryption, and real-time scheduling. ROS 2 uses it as the transport layer so application code is decoupled from networking details.
+1. `RELIABLE` guarantees delivery with retransmission (higher latency). `BEST_EFFORT` drops lost packets (lower latency). Use reliable for commands, best-effort for sensors.
+1. Use lifecycle nodes when you need deterministic startup/shutdown sequences, managed state transitions, or error recovery — especially for hardware interfaces or production systems.
+1. Component composition eliminates IPC overhead by running multiple nodes in one process, enabling zero-copy intra-process communication and reducing memory usage.
+1. Use SROS2 (ROS 2 Security) which provides TLS encryption, node authentication, and access control policies via DDS-Security.
+1. `RELIABLE` + `TRANSIENT_LOCAL` durability, with a history depth of 10-20 messages.
+1. Hardcoding makes nodes inflexible and breaks when topic names change. Use `--ros-args -r` for remapping and `--params-file` for configuration.
+1. `ros2 topic info -v <topic>` shows QoS profiles of all publishers and subscribers on that topic, highlighting mismatches.
 
 ## Safety and hardware notes
 
 <div className="safety-box">
 <h3>Control boundary</h3>
-<p>The AI layer may suggest a goal. ROS 2 controllers decide how that goal becomes motion. Keep speed limits, collision checks, and emergency-stop behavior outside the language model.</p>
+<p>The AI layer may suggest a goal. ROS 2 controllers decide how that goal becomes motion. Keep speed limits, collision checks, and emergency-stop behavior outside the language model. The safety node must be a separate, independently-testable ROS 2 node that can override cmd_vel at any time.</p>
 </div>
 
+## Glossary
 
+| Term | Definition |
+|---|---|
+| **ROS 2** | Robot Operating System 2 — an open-source middleware framework for robot software development, built on DDS. |
+| **Node** | A processes that performs a single, well-defined function within a ROS 2 system. |
+| **Topic** | A named, typed communication channel for publish/subscribe messaging. |
+| **Service** | A synchronous request/reply communication mechanism between two nodes. |
+| **Action** | An asynchronous, long-running task with goal, feedback, and result phases. |
+| **Parameter** | A configurable value that can be set at runtime without modifying code. |
+| **Launch file** | A script that starts multiple nodes with specific configurations. |
+| **rclpy** | The ROS 2 Client Library for Python — the Python API for ROS 2. |
+| **DDS** | Data Distribution Service — the ISO-standard pub/sub middleware that ROS 2 uses for transport. |
+| **QoS** | Quality of Service — policies controlling reliability, durability, history, deadline, and liveliness. |
+| **Lifecycle node** | A managed node with standardized state machine for startup, shutdown, and error recovery. |
+| **Component** | A loadable node library that can be composed into a container process for zero-copy IPC. |
+| **SROS2** | ROS 2 Security — encryption, authentication, and access control for DDS communication. |
+| **colcon** | The ROS 2 build tool for building, testing, and installing packages. |
+| **rosbag2** | A tool for recording and replaying ROS 2 message data for debugging and testing. |
+| **tf2** | A library for managing coordinate frame transforms between robot links and sensors. |
+| **IDL** | Interface Definition Language — the schema format for ROS 2 messages, services, and actions. |
+| **CDR** | Common Data Representation — the serialization format used by DDS for message encoding. |
+| **rmiddleware** | The pluggable middleware abstraction layer in ROS 2 that allows swapping DDS implementations. |
+| **CycloneDDS** | An open-source DDS implementation commonly used as the default RMW in ROS 2. |
+| **Fast DDS** | An open-source DDS implementation from eProsima, used as default RMW on some platforms. |
+| **remapping** | The ROS 2 mechanism for renaming topics, services, and parameters at launch time without code changes. |
+| **namespace** | A logical grouping prefix applied to node names and topic names for subsystem isolation. |
+| **cmd_vel** | The standard topic name for velocity commands (`geometry_msgs/msg/Twist`) sent to robot controllers. |
+| **odom** | Odometry data — the standard topic name for robot pose estimation from wheel encoders or visual odometry. |
+| **IMU** | Inertial Measurement Unit — sensor providing acceleration and angular velocity data. |
+| **LiDAR** | Light Detection and Ranging — laser-based range sensor used for mapping and obstacle detection. |
+| **Jetson** | NVIDIA Jetson family — embedded ARM64 computing platforms commonly used for mobile robot processing. |
+| **Cross-compilation** | Building software on one platform (x86) for execution on a different platform (ARM64 Jetson). |

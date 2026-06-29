@@ -3,21 +3,23 @@ sidebar_position: 1
 title: Start Here — Physical AI & Humanoid Robotics Textbook
 slug: /intro
 description: Begin the Physical AI and Humanoid Robotics textbook. A 13-week structured course covering ROS 2, Gazebo, Unity, NVIDIA Isaac, VLA systems, and autonomous humanoid capstone projects.
-keywords: [Physical AI, humanoid robotics, ROS 2, Gazebo, NVIDIA Isaac, VLA, AI textbook, robotics course]
+keywords: [Physical AI, humanoid robotics, ROS 2, Gazebo, NVIDIA Isaac, VLA, AI textbook, robotics course, embodied intelligence, simulation, digital twins]
 ---
 
 # Physical AI & Humanoid Robotics
 
-This AI-native textbook teaches the bridge between the digital brain and the physical body. It is written for learners who already understand modern AI agents and now want to control robots in simulated and real-world environments.
+This AI-native textbook teaches the bridge between the digital brain and the physical body. It is written for learners who already understand modern AI agents and now want to control robots in simulated and real-world environments. The future of work is a partnership between people, intelligent agents (AI software), and robots. This shift will not eliminate jobs but will change what humans do, creating massive demand for new skills in Physical AI and humanoid robotics.
+
+The course covers the full stack from middleware to manipulation: ROS 2 for robot communication, Gazebo and Unity for simulation, NVIDIA Isaac for GPU-accelerated perception, Vision-Language-Action pipelines for conversational robotics, and an integrated capstone where a simulated humanoid listens, plans, navigates, sees, and manipulates.
 
 <div className="visual-panel">
-<h3>Course thesis</h3>
+<h3>Course thesis — from digital brain to physical body</h3>
 <div className="visual-flow">
-<div className="flow-step"><span>Input</span>Human intent</div>
-<div className="flow-step"><span>Reasoning</span>AI planning</div>
-<div className="flow-step"><span>Middleware</span>ROS 2 actions</div>
-<div className="flow-step"><span>World</span>Simulation and sensors</div>
-<div className="flow-step"><span>Output</span>Safe robot behavior</div>
+<div className="flow-step"><span>Input</span>Human intent via voice or text</div>
+<div className="flow-step"><span>Reasoning</span>AI planning and task decomposition</div>
+<div className="flow-step"><span>Middleware</span>ROS 2 actions and controller bridge</div>
+<div className="flow-step"><span>World</span>Simulation and sensor feedback</div>
+<div className="flow-step"><span>Output</span>Safe robot behavior in physical space</div>
 </div>
 </div>
 
@@ -25,28 +27,63 @@ This AI-native textbook teaches the bridge between the digital brain and the phy
 
 This book is for students, engineers, founders, and technical instructors who want a structured path into Physical AI. You should be comfortable with Python fundamentals, basic AI concepts, and command-line development. Robotics experience helps, but the course introduces the major tools from first principles.
 
+**Prerequisites:**
+- Python 3.10+ with virtual environments
+- Command-line proficiency (bash, SSH, package managers)
+- Basic understanding of AI agents, LLMs, and API usage
+- Familiarity with Git and GitHub workflows
+- A computer running Ubuntu 22.04 LTS or a cloud VM with GPU access
+
+**Recommended background:**
+- Linear algebra (rotations, transformations)
+- Basic physics (forces, torques, kinematics)
+- Object-oriented programming
+- REST API design
+
 ## What you will learn
 
 By the end of the course, you should be able to:
 
-- Explain Physical AI and embodied intelligence in practical terms.
-- Use ROS 2 concepts such as nodes, topics, services, actions, launch files, and parameters.
-- Model robots and environments with Gazebo, Unity, URDF, and SDF.
-- Understand NVIDIA Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, and sim-to-real constraints.
-- Design Vision-Language-Action workflows that connect speech, planning, perception, navigation, and manipulation.
+- Explain Physical AI and embodied intelligence in practical terms, distinguishing software-only AI from systems that interact with the physical world.
+- Use ROS 2 concepts such as nodes, topics, services, actions, launch files, and parameters to build modular robot software.
+- Model robots and environments with Gazebo, Unity, URDF, and SDF for physics simulation and visualization.
+- Understand NVIDIA Isaac Sim, Isaac ROS, VSLAM, Nav2, synthetic data, and sim-to-real constraints for GPU-accelerated robotics.
+- Design Vision-Language-Action workflows that connect speech recognition, LLM planning, perception, navigation, and manipulation.
 - Evaluate hardware and cloud lab tradeoffs for RTX workstations, Jetson kits, RealSense cameras, IMUs, microphones, and robot platforms.
+- Build a complete autonomous humanoid demo that integrates all course modules into one working system.
 
-## Learning path
+## Course architecture
+
+The course is organized into seven modules that build on each other. Each module introduces a new layer of the robotics stack, and the final capstone integrates everything into one autonomous system.
 
 <div className="textbook-grid">
-<div className="textbook-card"><h3>1. Foundations</h3><p>Why Physical AI is different from software-only AI.</p></div>
-<div className="textbook-card"><h3>2. ROS 2</h3><p>The communication layer that turns plans into robot operations.</p></div>
-<div className="textbook-card"><h3>3. Simulation</h3><p>Digital twins for testing physics, sensors, and environments safely.</p></div>
-<div className="textbook-card"><h3>4. Isaac</h3><p>Accelerated perception, navigation, VSLAM, and synthetic data workflows.</p></div>
-<div className="textbook-card"><h3>5. VLA</h3><p>Vision-Language-Action pipelines for grounded robot behavior.</p></div>
-<div className="textbook-card"><h3>6. Humanoids</h3><p>Locomotion, manipulation, interaction, and hardware choices.</p></div>
-<div className="textbook-card"><h3>7. Capstone</h3><p>A simulated humanoid that listens, plans, navigates, sees, and manipulates.</p></div>
+<div className="textbook-card"><h3>1. Foundations</h3><p>Why Physical AI is different from software-only AI. Physical laws, sensors, constraints, and the embodied intelligence loop. Weeks 1-2.</p></div>
+<div className="textbook-card"><h3>2. ROS 2</h3><p>The communication layer that turns plans into robot operations. Nodes, topics, services, actions, and Python control paths with rclpy. Weeks 3-5.</p></div>
+<div className="textbook-card"><h3>3. Simulation</h3><p>Digital twins for testing physics, sensors, and environments safely. Gazebo, Unity, URDF, SDF, and sensor simulation. Weeks 6-7.</p></div>
+<div className="textbook-card"><h3>4. Isaac</h3><p>Accelerated perception, navigation, VSLAM, and synthetic data workflows. NVIDIA Isaac Sim, Isaac ROS, and Nav2. Weeks 8-10.</p></div>
+<div className="textbook-card"><h3>5. VLA</h3><p>Vision-Language-Action pipelines for grounded robot behavior. Whisper, GPT integration, and cognitive planning. Weeks 11-12.</p></div>
+<div className="textbook-card"><h3>6. Humanoids</h3><p>Locomotion, manipulation, interaction, and hardware choices. Kinematics, balance, and human-robot interaction design.</p></div>
+<div className="textbook-card"><h3>7. Capstone</h3><p>A simulated humanoid that listens, plans, navigates, sees, and manipulates. Full system integration and demo. Week 13.</p></div>
 </div>
+
+## Learning path and timeline
+
+The course follows a 13-week schedule. Each week includes concept reading, diagram tracing, lab work, and self-assessment quizzes.
+
+| Week | Module | Topic | Key Skills |
+|---:|---|---|---|
+| 1-2 | Foundations | Physical AI and Embodiment | Sensor types, embodied loop, safety constraints |
+| 3 | ROS 2 | Nodes, Topics, Services | rclpy, publishers, subscribers, QoS |
+| 4 | ROS 2 | Actions and Launch Files | Long-running goals, parameter management |
+| 5 | ROS 2 | Python Agent Bridge | LLM-to-ROS translation, validation nodes |
+| 6 | Simulation | Gazebo Setup | URDF, SDF, physics, collision geometry |
+| 7 | Simulation | Unity and Sensors | Visualization, depth cameras, LiDAR, IMU |
+| 8 | Isaac | Isaac Sim and ROS | Photorealistic scenes, synthetic data |
+| 9 | Isaac | VSLAM and Nav2 | Visual SLAM, path planning, recovery |
+| 10 | Isaac | Edge Deployment | Jetson Orin, sim-to-real, hardware constraints |
+| 11 | VLA | Voice and Planning | Whisper, intent parsing, LLM task decomposition |
+| 12 | VLA | Perception and Action | Object grounding, manipulation, validation |
+| 13 | Capstone | Full Integration | Autonomous humanoid demo |
 
 ## Recommended study rhythm
 
@@ -56,19 +93,106 @@ By the end of the course, you should be able to:
 | Trace the diagram | 10-15 min | System understanding |
 | Complete the lab prompt | 45-90 min | Sketch, node graph, or design artifact |
 | Answer the quiz | 10 min | Self-check before moving on |
+| Review glossary terms | 5-10 min | Technical vocabulary reinforcement |
 
 ## Chapter standard
 
-Each chapter follows a consistent pattern:
+Each chapter follows a consistent pattern designed for structured learning and RAG (Retrieval-Augmented Generation) compatibility:
 
 - **Learning outcomes**: What you should be able to explain or build.
-- **Concept explanation**: The core ideas, vocabulary, and tradeoffs.
-- **Visual model**: A diagram, flow, table, or system map.
+- **Concept explanation**: The core ideas, vocabulary, and tradeoffs with specific technical details.
+- **Visual model**: A diagram, flow, table, or system map showing relationships.
+- **Deep dive subtopics**: Detailed technical breakdowns of sub-concepts.
+- **Code examples**: Working Python/ROS 2 code snippets where applicable.
 - **Practical lab**: A task that turns reading into practice.
 - **Quiz**: Short checks with answers.
-- **Safety and hardware notes**: Constraints for simulation, edge devices, and physical robots when relevant.
+- **Safety and hardware notes**: Constraints for simulation, edge devices, and physical robots.
+- **Glossary terms**: Key vocabulary defined for each chapter.
+- **Cross-references**: Links to related concepts in other chapters.
+
+## Key terminology reference
+
+| Term | Definition | Chapter |
+|---|---|---|
+| Physical AI | AI systems that operate in the physical world through sensors and actuators | Foundations |
+| Embodied Intelligence | Intelligence distributed across body, sensors, controllers, and environment | Foundations |
+| ROS 2 | Robot Operating System 2 — middleware for modular robot software | ROS 2 |
+| URDF | Unified Robot Description Format — XML description of robot structure | Simulation |
+| SDF | Simulation Description Format — richer simulation world descriptions | Simulation |
+| VSLAM | Visual Simultaneous Localization and Mapping — pose and map estimation | Isaac |
+| Nav2 | Navigation 2 — ROS 2 navigation framework for path planning | Isaac |
+| VLA | Vision-Language-Action — pipeline connecting perception, language, and execution | VLA |
+| Sim-to-Real | Transfer of behaviors learned in simulation to physical hardware | Isaac |
+| Digital Twin | A simulated version of a robot or environment for testing | Simulation |
+| Gazebo | Open-source physics simulation engine for robotics | Simulation |
+| Unity | Game engine used for high-fidelity robot visualization | Simulation |
+| NVIDIA Isaac | GPU-accelerated robotics platform for simulation and perception | Isaac |
+| Jetson Orin | NVIDIA edge AI computing platform for robot deployment | Isaac |
+| rclpy | ROS 2 Python client library for building nodes | ROS 2 |
+| Nav2 | ROS 2 navigation stack for autonomous robot movement | Isaac |
+| Whisper | OpenAI speech-to-text model for voice commands | VLA |
+| URDF | Unified Robot Description Format for robot model specification | Simulation |
+
+## Hardware requirements
+
+This course is technically demanding. It sits at the intersection of three heavy computational loads: Physics Simulation (Isaac Sim/Gazebo), Visual Perception (SLAM/Computer Vision), and Generative AI (LLMs/VLA).
+
+### The "Digital Twin" Workstation (Required per Student)
+
+This is the most critical component. NVIDIA Isaac Sim is an Omniverse application that requires RTX (Ray Tracing) capabilities. Standard laptops (MacBooks or non-RTX Windows machines) will not work.
+
+| Component | Minimum | Recommended | Why |
+|---|---|---|---|
+| GPU | NVIDIA RTX 4070 Ti (12GB VRAM) | RTX 4090 (24GB VRAM) | VRAM for USD assets + VLA models simultaneously |
+| CPU | Intel Core i7 (13th Gen+) | AMD Ryzen 9 | Physics calculations in Gazebo/Isaac are CPU-intensive |
+| RAM | 32 GB DDR5 | 64 GB DDR5 | Complex scene rendering requires high memory |
+| OS | Ubuntu 22.04 LTS | Ubuntu 22.04 LTS | ROS 2 Humble/Iron is native to Linux |
+
+### The "Physical AI" Edge Kit
+
+| Component | Model | Approx. Price | Role |
+|---|---|---|---|
+| Brain | NVIDIA Jetson Orin Nano Super (8GB) | $249 | Edge inference and deployment |
+| Eyes | Intel RealSense D435i | $349 | RGB + Depth + IMU for VSLAM |
+| Ears | ReSpeaker USB Mic Array v2.0 | $69 | Far-field microphone for voice commands |
+| Storage | 128GB SD Card | $30 | High-endurance microSD for OS |
+| **Total** | | **~$700** | |
+
+### Robot Lab Options
+
+| Option | Robot | Cost | Best For |
+|---|---|---|---|
+| A: Proxy | Unitree Go2 Edu | $1,800-$3,000 | Budget-friendly ROS 2 + navigation practice |
+| B: Mini Humanoid | Unitree G1 or Hiwonder TonyPi Pro | $600-$16,000 | Kinematics and walking demos |
+| C: Premium | Unitree G1 Humanoid | $16,000+ | Full humanoid capstone with sim-to-real |
 
 ## Capstone outcome
 
-The capstone is a simulated humanoid robot that receives a voice command, forms a plan, navigates around obstacles, identifies an object with computer vision, and manipulates it. The first implementation can run in simulation; physical deployment requires additional safety review, local edge execution, and latency-aware design.
+The capstone is a simulated humanoid robot that receives a voice command, forms a plan, navigates around obstacles, identifies an object with computer vision, and manipulates it. The first implementation runs in simulation; physical deployment requires additional safety review, local edge execution, and latency-aware design.
 
+**Capstone requirements matrix:**
+
+| Requirement | Evidence in Demo | Failure Behavior |
+|---|---|---|
+| Voice command accepted | Transcript appears or is logged | Ask user to repeat |
+| Plan generated | Steps are visible and bounded | Reject unsafe or unclear plan |
+| Path planned | Robot route is shown in simulation | Replan or stop |
+| Object detected | Target label and confidence shown | Ask clarification or scan again |
+| Manipulation attempted | Robot reaches and grasps safely | Abort if object is unreachable |
+| Outcome verified | Final state is checked | Report incomplete task |
+
+## Safety-first design philosophy
+
+<div className="safety-box">
+<h3>Fundamental safety principle</h3>
+<p>Never let high-level language output directly command actuators. Put perception checks, workspace constraints, controller limits, and emergency-stop procedures between the model and motion. Every module in this course enforces this boundary.</p>
+</div>
+
+## Glossary
+
+- **Physical AI**: AI systems that operate in the physical world through sensors, actuators, and controllers, as opposed to software-only AI that manipulates information.
+- **Embodiment**: The property of intelligence being distributed across a body, sensors, controllers, environment, and feedback loops rather than isolated in a model.
+- **Middleware**: Software that sits between high-level AI reasoning and low-level robot control, providing communication, modularity, and safety abstractions.
+- **Digital Twin**: A simulated version of a robot, environment, or interaction used for testing before physical deployment.
+- **Sim-to-Real Transfer**: The process of deploying behaviors learned or validated in simulation to physical hardware.
+- **Grounding**: The process of connecting language or abstract goals to concrete physical objects, locations, and actions.

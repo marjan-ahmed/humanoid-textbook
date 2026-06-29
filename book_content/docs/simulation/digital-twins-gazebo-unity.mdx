@@ -2,7 +2,7 @@
 sidebar_position: 1
 title: Digital Twins with Gazebo and Unity
 description: Physics simulation with Gazebo and Unity, URDF/SDF robot descriptions, collision modeling, sensors, depth cameras, LiDAR, IMUs, and testable digital twin environments.
-keywords: [Gazebo, Unity, digital twins, URDF, SDF, physics simulation, robot simulation, LiDAR, IMU]
+keywords: [Gazebo, Unity, digital twins, URDF, SDF, physics simulation, robot simulation, LiDAR, IMU, ROS 2, Isaac Sim, sim-to-real transfer, ODE, Bullet, DART, MuJoCo, sensor noise models, domain randomization, collision geometry, inertial properties, launch files, TCP connector]
 ---
 
 # Digital Twins with Gazebo and Unity
@@ -13,22 +13,64 @@ keywords: [Gazebo, Unity, digital twins, URDF, SDF, physics simulation, robot si
 - Compare Gazebo physics simulation and Unity visualization roles.
 - Identify how URDF, SDF, LiDAR, depth cameras, and IMUs support robot testing.
 - Design a simulation test for a humanoid task.
+- Construct URDF and SDF files that define robot kinematics, dynamics, and sensor placement.
+- Configure sensor plugins with realistic noise models, update rates, and field-of-view constraints.
+- Analyze physics engine tradeoffs between ODE, Bullet, DART, and MuJoCo for different robot morphologies.
+- Apply domain randomization and sim-to-real transfer techniques to reduce the reality gap.
+- Debug common simulation pitfalls including interpenetration, floating-base instability, and sensor aliasing.
 
 ## Concept explanation
 
-A digital twin is a simulated version of a robot, environment, or interaction. It is not a perfect copy of reality. It is a controlled test space where learners can expose problems before a machine moves in the real world.
+### Why simulation before hardware
 
-Gazebo is useful for physics, collisions, gravity, robot descriptions, and sensor simulation. Unity can provide high-fidelity visualization and human-robot interaction scenes. Together they help students understand both the mechanics and the experience of robotics.
+A digital twin is a simulated version of a robot, environment, or interaction. It is not a perfect copy of reality. It is a controlled test space where learners can expose problems before a machine moves in the real world. Simulation provides three critical advantages over immediate hardware deployment:
+
+1. **Safety** -- You can test failure modes (joint over-torque, unstable gaits, collision recovery) without destroying hardware or injuring people.
+2. **Repeatability** -- Every run starts from identical initial conditions, enabling controlled experiments that isolate single variables.
+3. **Speed** -- Hundreds of test episodes can run in parallel on a compute cluster, compressing months of physical testing into hours.
+
+### Gazebo: the physics-first simulator
+
+Gazebo is useful for physics, collisions, gravity, robot descriptions, and sensor simulation. It was designed specifically for robotics research and integrates natively with ROS and ROS 2 through dedicated bridge packages. Gazebo uses plugin-based architecture: every sensor, physics engine, and middleware integration is a loadable plugin. This makes it extensible but also means configuration is often verbose.
+
+Key Gazebo capabilities for humanoid simulation:
+
+- **Physics engines**: ODE (default), Bullet, DART, and Simbody can be selected per-world.
+- **Sensor plugins**: Camera, depth camera, LiDAR (ray and GPU), IMU, force-torque,接触传感器, GPS, and magnetometer plugins ship with standard Gazebo distributions.
+- **Model database**: A community-maintained model repository provides pre-built robots, objects, and environments.
+- **ROS integration**: `gazebo_ros_pkgs` and the newer `ros_gz` bridge provide bidirectional topic and service communication between Gazebo and ROS 2 nodes.
+
+### Unity: high-fidelity visualization and interaction
+
+Unity can provide high-fidelity visualization and human-robot interaction scenes. It is built on a real-time rendering engine originally designed for games, which gives it advantages in visual quality, animation, and VR/AR integration. However, Unity was not designed for robotics, so physics and ROS integration require careful setup.
+
+Key Unity capabilities for humanoid simulation:
+
+- **URDF Importer**: Unity Robotics package parses URDF files and creates articulated robot GameObjects with joint controllers.
+- **ROS TCP Connector**: A network-based bridge that streams ROS 2 topics (sensor data, joint states, commands) between Unity and a ROS 2 workspace over TCP.
+- **ML-Agents**: Reinforcement learning toolkit that allows training policies directly in Unity environments.
+- **HDRP rendering**: High Definition Render Pipeline produces photorealistic scenes useful for training vision-based algorithms.
+
+### Isaac Sim: NVIDIA's simulation platform
+
+Isaac Sim provides photorealistic robotics simulation and synthetic data generation built on NVIDIA Omniverse. It uses RTX ray tracing for physically accurate lighting and reflections. It requires RTX hardware or a suitable cloud GPU. Isaac Sim is particularly strong for:
+
+- Synthetic data generation for training perception models.
+- Large-scale parallel simulation with GPU-accelerated physics.
+- Integration with NVIDIA's robotics stack (Isaac Lab, Isaac Cortex).
+
+Together these three tools help students understand both the mechanics and the experience of robotics.
 
 ## Visual model: simulation stack
 
 <div className="visual-panel">
 <div className="visual-flow">
-<div className="flow-step"><span>Robot model</span>URDF, joints, links, inertia</div>
-<div className="flow-step"><span>World model</span>Rooms, floors, objects, obstacles</div>
-<div className="flow-step"><span>Physics</span>Gravity, collision, friction</div>
-<div className="flow-step"><span>Sensors</span>RGB, depth, LiDAR, IMU</div>
-<div className="flow-step"><span>Test</span>Navigation and manipulation trial</div>
+<div className="flow-step"><span>Robot model</span>URDF, joints, links, inertia, collision geometry</div>
+<div className="flow-step"><span>World model</span>Rooms, floors, objects, obstacles, lighting</div>
+<div className="flow-step"><span>Physics</span>Gravity, collision, friction, damping, joint limits</div>
+<div className="flow-step"><span>Sensors</span>RGB camera, depth, LiDAR, IMU, force-torque</div>
+<div className="flow-step"><span>Middleware</span>ROS 2 topics, services, actions, TF tree</div>
+<div className="flow-step"><span>Test</span>Navigation, manipulation, locomotion, failure recovery</div>
 </div>
 </div>
 
@@ -40,6 +82,995 @@ Gazebo is useful for physics, collisions, gravity, robot descriptions, and senso
 | Unity | Visual environments, interaction scenes, human-facing simulation | Physics and ROS integration need careful setup |
 | Isaac Sim | Photorealistic robotics simulation and synthetic data | Requires RTX hardware or suitable cloud GPU |
 
+## Detailed URDF structure
+
+URDF (Unified Robot Description Format) is an XML-based format that defines a robot as a tree of links connected by joints. Every humanoid robot in Gazebo starts from a URDF file.
+
+### Minimal humanoid URDF example
+
+```xml
+<?xml version="1.0"?>
+<robot name="minimal_humanoid">
+  <!-- Base link (torso) -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.3 0.2 0.4"/>
+      </geometry>
+      <material name="torso_material">
+        <color rgba="0.2 0.6 0.8 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.3 0.2 0.4"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="15.0"/>
+      <inertia ixx="0.1" ixy="0.0" ixz="0.0"
+               iyy="0.15" iyz="0.0" izz="0.1"/>
+    </inertial>
+  </link>
+
+  <!-- Left hip joint -->
+  <joint name="left_hip_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="left_upper_leg"/>
+    <origin xyz="-0.1 0.0 -0.25" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.57" upper="1.57" effort="100" velocity="1.0"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <link name="left_upper_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.06" length="0.35"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.06" length="0.35"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 -0.175"/>
+      <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+               iyy="0.02" iyz="0.0" izz="0.005"/>
+    </inertial>
+  </link>
+
+  <!-- Left knee joint -->
+  <joint name="left_knee_joint" type="revolute">
+    <parent link="left_upper_leg"/>
+    <child link="left_lower_leg"/>
+    <origin xyz="0.0 0.0 -0.35" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0.0" upper="2.6" effort="80" velocity="1.0"/>
+    <dynamics damping="0.3" friction="0.05"/>
+  </joint>
+
+  <link name="left_lower_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.05" length="0.35"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.05" length="0.35"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="4.0"/>
+      <origin xyz="0 0 -0.175"/>
+      <inertia ixx="0.015" ixy="0.0" ixz="0.0"
+               iyy="0.015" iyz="0.0" izz="0.004"/>
+    </inertial>
+  </link>
+
+  <!-- Left ankle joint -->
+  <joint name="left_ankle_joint" type="revolute">
+    <parent link="left_lower_leg"/>
+    <child link="left_foot"/>
+    <origin xyz="0.0 0.0 -0.35" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.78" upper="0.78" effort="50" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="left_foot">
+    <visual>
+      <geometry>
+        <box size="0.1 0.06 0.02"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.1 0.06 0.02"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0"
+               iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <!-- Right side mirrors left -->
+  <joint name="right_hip_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="right_upper_leg"/>
+    <origin xyz="-0.1 0.0 -0.25" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.57" upper="1.57" effort="100" velocity="1.0"/>
+    <dynamics damping="0.5" friction="0.1"/>
+  </joint>
+
+  <link name="right_upper_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.06" length="0.35"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.06" length="0.35"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 -0.175"/>
+      <inertia ixx="0.02" ixy="0.0" ixz="0.0"
+               iyy="0.02" iyz="0.0" izz="0.005"/>
+    </inertial>
+  </link>
+
+  <joint name="right_knee_joint" type="revolute">
+    <parent link="right_upper_leg"/>
+    <child link="right_lower_leg"/>
+    <origin xyz="0.0 0.0 -0.35" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0.0" upper="2.6" effort="80" velocity="1.0"/>
+    <dynamics damping="0.3" friction="0.05"/>
+  </joint>
+
+  <link name="right_lower_leg">
+    <visual>
+      <geometry>
+        <cylinder radius="0.05" length="0.35"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.05" length="0.35"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="4.0"/>
+      <origin xyz="0 0 -0.175"/>
+      <inertia ixx="0.015" ixy="0.0" ixz="0.0"
+               iyy="0.015" iyz="0.0" izz="0.004"/>
+    </inertial>
+  </link>
+
+  <joint name="right_ankle_joint" type="revolute">
+    <parent link="right_lower_leg"/>
+    <child link="right_foot"/>
+    <origin xyz="0.0 0.0 -0.35" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.78" upper="0.78" effort="50" velocity="1.0"/>
+    <dynamics damping="0.2" friction="0.05"/>
+  </joint>
+
+  <link name="right_foot">
+    <visual>
+      <geometry>
+        <box size="0.1 0.06 0.02"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.1 0.06 0.02"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.001" ixy="0.0" ixz="0.0"
+               iyy="0.001" iyz="0.0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <!-- Head -->
+  <joint name="neck_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="head"/>
+    <origin xyz="0.0 0.0 0.25" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.78" upper="0.78" effort="20" velocity="0.5"/>
+  </joint>
+
+  <link name="head">
+    <visual>
+      <geometry>
+        <sphere radius="0.1"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <sphere radius="0.1"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3.0"/>
+      <inertia ixx="0.005" ixy="0.0" ixz="0.0"
+               iyy="0.005" iyz="0.0" izz="0.005"/>
+    </inertial>
+  </link>
+
+  <!-- Camera sensor mounted on head -->
+  <gazebo reference="head">
+    <sensor type="camera" name="head_camera">
+      <update_rate>30</update_rate>
+      <camera name="head_camera_sensor">
+        <horizontal_fov>1.047</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.1</near>
+          <far>100.0</far>
+        </clip>
+      </camera>
+      <plugin name="head_camera_plugin" filename="libgazebo_ros_camera.so">
+        <ros>
+          <namespace>/robot</namespace>
+        </ros>
+        <frame_name>head</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+</robot>
+```
+
+### Key URDF elements explained
+
+| Element | Purpose |
+|---|---|
+| `<link>` | A rigid body in the kinematic chain with visual, collision, and inertial properties |
+| `<joint>` | Connects two links with type (revolute, prismatic, fixed, continuous), axis, limits, and dynamics |
+| `<visual>` | Defines appearance (mesh or primitive geometry) used for rendering |
+| `<collision>` | Defines geometry used by the physics engine for contact detection |
+| `<inertial>` | Mass and 3x3 inertia tensor used by the dynamics engine |
+| `<gazebo>` | Gazebo-specific extensions for sensor plugins, material colors, and references |
+
+## SDF world file example
+
+SDF (Simulation Description Format) is more expressive than URDF and is the native format for Gazebo worlds. A world file defines the simulation environment including gravity, physics engine, lighting, models, and sensor configurations.
+
+```xml
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="humanoid_test_world">
+
+    <!-- Physics engine configuration -->
+    <physics name="ode_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+      <ode>
+        <solver>
+          <type>dantzig</type>
+          <iters>50</iters>
+          <sor>1.3</sor>
+        </solver>
+        <constraints>
+          <cfm>0.0</cfm>
+          <erp>0.2</erp>
+          <contact_max_correcting_vel>100.0</contact_max_correcting_vel>
+          <contact_surface_layer>0.001</contact_surface_layer>
+        </constraints>
+      </ode>
+    </physics>
+
+    <!-- Gravity -->
+    <gravity>0 0 -9.81</gravity>
+
+    <!-- Magnetic field (for IMU simulation) -->
+    <magnetic_field>5.6e-06 1.68e-05 -4.94e-05</magnetic_field>
+
+    <!-- Atmospheric conditions for air drag simulation -->
+    <atmosphere type="atmospheric_pressure"/>
+
+    <!-- Lighting -->
+    <light type="directional" name="sun">
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+      <cast_shadows>true</cast_shadows>
+    </light>
+
+    <!-- Ground plane -->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- Concrete floor with friction parameters -->
+    <model name="concrete_floor">
+      <static>true</static>
+      <link name="floor_link">
+        <visual name="floor_visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>20 20</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.5 0.5 0.5 1</ambient>
+            <diffuse>0.5 0.5 0.5 1</diffuse>
+          </material>
+        </visual>
+        <collision name="floor_collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>20 20</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.8</mu>
+                <mu2>0.8</mu2>
+                <fdir1>1 0 0</fdir1>
+              </ode>
+            </friction>
+            <bounce>
+              <ode>
+                <bounce>0.1</bounce>
+                <bounce_velocity>0.1</bounce_velocity>
+              </ode>
+            </bounce>
+            <contact>
+              <ode>
+                <max_contacts>10</max_contacts>
+                <layer>0.001</layer>
+                <max_vel>100</max_vel>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+      </link>
+    </model>
+
+    <!-- Table obstacle -->
+    <model name="table">
+      <static>true</static>
+      <pose>2.0 0.5 0 0 0 0</pose>
+      <link name="table_top">
+        <visual name="top_visual">
+          <geometry>
+            <box size="1.0 0.6 0.02"/>
+          </geometry>
+        </visual>
+        <collision name="top_collision">
+          <geometry>
+            <box size="1.0 0.6 0.02"/>
+          </geometry>
+        </collision>
+        <pose>0 0 0.75 0 0 0</pose>
+      </link>
+      <link name="leg_1">
+        <visual name="leg1_vis">
+          <geometry><cylinder radius="0.03" length="0.75"/></geometry>
+        </visual>
+        <collision name="leg1_col">
+          <geometry><cylinder radius="0.03" length="0.75"/></geometry>
+        </collision>
+        <pose>0.4 0.2 0.375 0 0 0</pose>
+      </link>
+      <link name="leg_2">
+        <visual name="leg2_vis">
+          <geometry><cylinder radius="0.03" length="0.75"/></geometry>
+        </visual>
+        <collision name="leg2_col">
+          <geometry><cylinder radius="0.03" length="0.75"/></geometry>
+        </collision>
+        <pose>-0.4 0.2 0.375 0 0 0</pose>
+      </link>
+    </model>
+
+    <!-- Robot include -->
+    <include>
+      <uri>model://minimal_humanoid</uri>
+      <pose>0 0 1.2 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>
+```
+
+## Spawning robots in Gazebo with Python
+
+The following Python script spawns a robot model into a running Gazebo instance using the Gazebo ROS service interface:
+
+```python
+import rclpy
+from rclpy.node import Node
+from gazebo_msgs.srv import SpawnEntity
+import os
+import xacro
+
+
+class RobotSpawner(Node):
+    def __init__(self):
+        super().__init__('robot_spawner')
+        self.client = self.create_client(SpawnEntity, '/spawn_entity')
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for /spawn_entity service...')
+
+    def spawn_from_xacro(self, xacro_path, robot_name, namespace=''):
+        doc = xacro.process_file(xacro_path)
+        robot_description = doc.toxml()
+
+        request = SpawnEntity.Request()
+        request.name = robot_name
+        request.xml = robot_description
+        request.robot_namespace = namespace
+        request.reference_frame = 'world'
+
+        future = self.client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None:
+            self.get_logger().info(
+                f'Spawned {robot_name}: {future.result().status_message}'
+            )
+        else:
+            self.get_logger().error(
+                f'Failed to spawn {robot_name}: {future.exception()}'
+            )
+
+
+def main():
+    rclpy.init()
+    spawner = RobotSpawner()
+
+    xacro_file = os.path.join(
+        os.getcwd(),
+        'src', 'my_robot', 'urdf', 'humanoid.urdf.xacro'
+    )
+    spawner.spawn_from_xacro(xacro_file, 'minimal_humanoid', '/robot')
+
+    spawner.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+## ROS 2 launch file for Gazebo simulation
+
+A launch file orchestrates the startup of Gazebo, the robot state publisher, and controller nodes:
+
+```python
+import os
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import ExecuteProcess, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    pkg_share = get_package_share_directory('my_robot_description')
+    gazebo_share = get_package_share_directory('gazebo_ros')
+    world_file = os.path.join(pkg_share, 'worlds', 'humanoid_test_world.sdf')
+    urdf_file = os.path.join(pkg_share, 'urdf', 'humanoid.urdf')
+
+    with open(urdf_file, 'r') as f:
+        robot_description = f.read()
+
+    # Launch Gazebo with the custom world
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(gazebo_share, 'launch', 'gazebo.launch.py')
+        ),
+        launch_arguments={'world': world_file}.items(),
+    )
+
+    # Robot state publisher publishes TF transforms from URDF
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{'robot_description': robot_description}],
+        output='screen',
+    )
+
+    # Joint state publisher for simulating joint values
+    joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        parameters=[{'use_sim_time': True}],
+    )
+
+    # Spawn the robot entity in Gazebo
+    spawn_entity = Node(
+        package='gazebo_ros',
+        executable='spawn_entity.py',
+        arguments=[
+            '-topic', 'robot_description',
+            '-entity', 'minimal_humanoid',
+            '-z', '1.2',
+        ],
+        output='screen',
+    )
+
+    return LaunchDescription([
+        gazebo,
+        robot_state_publisher,
+        joint_state_publisher,
+        spawn_entity,
+    ])
+```
+
+## Unity ROS TCP connector setup
+
+The ROS TCP Connector enables bidirectional communication between Unity and a ROS 2 workspace. Setup requires both a Unity-side package and a ROS-side endpoint node.
+
+### Unity-side setup (C# component)
+
+```csharp
+using Unity.Robotics.ROSTCPConnector;
+using UnityEngine;
+
+public class ROSBridgeSetup : MonoBehaviour
+{
+    [SerializeField] string rosIPAddress = "127.0.0.1";
+    [SerializeField] int rosPort = 10000;
+
+    void Awake()
+    {
+        ROSConnection.instance.Connect(
+            rosIPAddress,
+            rosPort
+        );
+    }
+
+    void Start()
+    {
+        // Subscribe to a ROS 2 topic
+        ROSConnection.instance.Subscribe<GeometryMsgsTwist>(
+            "/cmd_vel",
+            CmdVelCallback
+        );
+
+        // Register a publisher for sensor data back to ROS
+        ROSConnection.instance.RegisterPublisher<SensorMsgsImage>(
+            "/unity/camera/image_raw"
+        );
+    }
+
+    void CmdVelCallback(GeometryMsgsTwist msg)
+    {
+        // Apply velocity commands to the robot in Unity
+        float linearSpeed = (float)msg.linear.x;
+        float angularSpeed = (float)msg.angular.z;
+        // Apply to rigidbody or articulation body controller
+    }
+}
+```
+
+### ROS-side endpoint node
+
+```python
+import rclpy
+from rclpy.node import Node
+from ros_tcp_endpoint.tcp_server import TcpServer
+
+
+class UnityEndpoint(Node):
+    def __init__(self):
+        super().__init__('unity_endpoint')
+        self.tcp_server = TcpServer(ros_node_name='unity_endpoint')
+        self.get_logger().info('Unity ROS TCP endpoint initialized')
+
+
+def main():
+    rclpy.init()
+    node = UnityEndpoint()
+    rclpy.spin(node)
+    rclpy.shutdown()
+```
+
+## Sensor plugin configuration
+
+### Camera plugin (Gazebo)
+
+```xml
+<sensor type="camera" name="front_camera">
+  <always_on>true</always_on>
+  <update_rate>30</update_rate>
+  <camera name="front_camera_sensor">
+    <horizontal_fov>1.047</horizontal_fov>
+    <image>
+      <width>1920</width>
+      <height>1080</height>
+      <format>R8G8B8</format>
+    </image>
+    <clip>
+      <near>0.05</near>
+      <far>100.0</far>
+    </clip>
+    <noise>
+      <type>gaussian</type>
+      <mean>0.0</mean>
+      <stddev>0.007</stddev>
+    </noise>
+  </camera>
+  <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+    <ros>
+      <namespace>/robot/sensors</namespace>
+    </ros>
+    <frame_name>front_camera_link</frame_name>
+    <image_topicName>/robot/sensors/camera/image_raw</image_topicName>
+    <camera_info_topicName>/robot/sensors/camera/camera_info</camera_info_topicName>
+  </plugin>
+</sensor>
+```
+
+### GPU LiDAR plugin (Gazebo)
+
+```xml
+<sensor type="gpu_lidar" name="velodyne_vlp16">
+  <always_on>true</always_on>
+  <update_rate>20</update_rate>
+  <lidar name="vlp16">
+    <scan>
+      <horizontal>
+        <samples>360</samples>
+        <resolution>1</resolution>
+        <min_angle>-3.14159</min_angle>
+        <max_angle>3.14159</max_angle>
+      </horizontal>
+      <vertical>
+        <samples>16</samples>
+        <resolution>1</resolution>
+        <min_angle>-0.2618</min_angle>
+        <max_angle>0.2618</max_angle>
+      </vertical>
+    </scan>
+    <range>
+      <min>0.1</min>
+      <max>100.0</max>
+    </range>
+    <noise>
+      <type>gaussian</type>
+      <mean>0.0</mean>
+      <stddev>0.01</stddev>
+    </noise>
+  </lidar>
+  <plugin name="velodyne_plugin" filename="libgazebo_ros_gpu_laser.so">
+    <ros>
+      <namespace>/robot/sensors</namespace>
+    </ros>
+    <topicName>/robot/sensors/velodyne/points</topicName>
+    <frameName>velodyne_link</frameName>
+  </plugin>
+</sensor>
+```
+
+### IMU plugin (Gazebo)
+
+```xml
+<sensor type="imu" name="imu_sensor">
+  <always_on>true</always_on>
+  <update_rate>200</update_rate>
+  <imu name="imu">
+    <topicName>/robot/sensors/imu/data</topicName>
+    <bodyName>base_link</bodyName>
+    <referenceFrame>base_link</referenceFrame>
+    <angular_velocity>
+      <noise type="gaussian">
+        <mean>0.0</mean>
+        <stddev>0.0017</stddev>
+      </noise>
+    </angular_velocity>
+    <linear_acceleration>
+      <noise type="gaussian">
+        <mean>0.0</mean>
+        <stddev>0.0196</stddev>
+      </noise>
+    </linear_acceleration>
+  </imu>
+  <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+    <ros>
+      <namespace>/robot/sensors</namespace>
+    </ros>
+    <topicName>/robot/sensors/imu/data_raw</topicName>
+    <bodyName>base_link</bodyName>
+    <frameName>imu_link</frameName>
+  </plugin>
+</sensor>
+```
+
+### Depth camera plugin (Gazebo)
+
+```xml
+<sensor type="depth" name="depth_camera">
+  <always_on>true</always_on>
+  <update_rate>30</update_rate>
+  <camera name="depth_sensor">
+    <horizontal_fov>1.047</horizontal_fov>
+    <image>
+      <width>640</width>
+      <height>480</height>
+      <format>R8G8B8</format>
+    </image>
+    <clip>
+      <near>0.1</near>
+      <far>10.0</far>
+    </clip>
+    <noise>
+      <type>gaussian</type>
+      <mean>0.0</mean>
+      <stddev>0.005</stddev>
+    </noise>
+  </camera>
+  <plugin name="depth_camera_controller" filename="libgazebo_ros_depth_camera.so">
+    <ros>
+      <namespace>/robot/sensors</namespace>
+    </ros>
+    <frameName>depth_camera_link</frameName>
+    <pointCloudTopicName>/robot/sensors/depth/points</pointCloudTopicName>
+    <depthImageTopicName>/robot/sensors/depth/image_raw</depthImageTopicName>
+    <depthImageCameraInfoTopicName>/robot/sensors/depth/camera_info</depthImageCameraInfoTopicName>
+  </plugin>
+</sensor>
+```
+
+## Deep dive subtopics
+
+### Physics engine comparison
+
+The choice of physics engine significantly affects simulation fidelity and stability. Gazebo supports four engines, each with distinct characteristics.
+
+#### ODE (Open Dynamics Engine)
+
+ODE is the default physics engine in Gazebo. It uses constraint-based dynamics with a Dantzig or iterative solver for joint constraints.
+
+| Property | Value |
+|---|---|
+| Solver | Dantzig (exact) or iterative (fast) |
+| Contact model | Coulomb friction with split impulse |
+| Strengths | Fast, well-tested, stable for moderate contact |
+| Weaknesses | Simplified friction model, struggles with rolling contact |
+| Best for | Wheeled robots, simple bipeds, manipulation tasks |
+
+**Key parameters:**
+- `cfm` (Constraint Force Mixing): Controls constraint softness. Higher values make joints spongier.
+- `erp` (Error Reduction Rate): Controls how aggressively joint errors are corrected. Default 0.2.
+- `contact_max_correcting_vel`: Maximum velocity correction at contact points.
+- `contact_surface_layer`: Thin layer around collision geometry for early contact detection.
+
+#### Bullet
+
+Bullet provides more sophisticated collision detection and soft-body physics.
+
+| Property | Value |
+|---|---|
+| Solver | Sequential impulse |
+| Contact model | Split impulse with Coulomb friction |
+| Strengths | Better friction modeling, soft body support, ragdoll dynamics |
+| Weaknesses | Slower than ODE for large scenes, less mature ROS integration |
+| Best for | Humanoid locomotion, deformable terrain, complex contact |
+
+#### DART (Dynamic Animation and Robotics Toolkit)
+
+DART uses an impulse-based approach and maintains a complete dynamics model of the kinematic tree.
+
+| Property | Value |
+|---|---|
+| Solver | Impulse-based with constraint stabilization |
+| Contact model | Rigid contact with LCP or PGS solver |
+| Strengths | Accurate dynamics, Skeleton API, collision detection quality |
+| Weaknesses | Slower initialization, smaller community |
+| Best for | Biomechanical modeling, accurate humanoid dynamics research |
+
+#### MuJoCo (Multi-Joint dynamics with Contact)
+
+MuJoCo is optimized for control and reinforcement learning. It uses a smooth constraint model and is extremely fast for contact-rich simulations.
+
+| Property | Value |
+|---|---|
+| Solver | Smooth contact with Newton solver |
+| Contact model | Relaxed rigid contact with smooth approximation |
+| Strengths | Fastest for contact-heavy tasks, excellent for RL, accurate friction |
+| Weaknesses | Commercial license (free for research), limited rendering |
+| Best for | Reinforcement learning, dexterous manipulation, humanoid locomotion research |
+
+### Sensor simulation fidelity and noise models
+
+Simulated sensors must include realistic noise to be useful. A perfect sensor produces algorithms that fail in the real world.
+
+#### Gaussian noise model
+
+Most sensor plugins support additive Gaussian noise:
+
+```
+measured_value = true_value + N(μ, σ²)
+```
+
+Typical noise parameters:
+
+| Sensor | Parameter | Typical value | Units |
+|---|---|---|---|
+| IMU angular velocity | σ | 0.0017 | rad/s |
+| IMU linear acceleration | σ | 0.0196 | m/s² |
+| Camera pixel intensity | σ | 0.007 | normalized |
+| LiDAR range | σ | 0.01 | m |
+| Depth camera depth | σ | 0.005 | m |
+
+#### Temporal noise sources
+
+- **Jitter**: Variation in actual update rate vs nominal rate. A 30 Hz camera may actually publish at 28-32 Hz.
+- **Latency**: Time between image capture and topic publication. Typically 10-50 ms depending on resolution and processing.
+- **Dropped frames**: Occasional missing messages due to processing load.
+
+#### Spatial noise sources
+
+- **Distortion**: Lens distortion in real cameras (barrel, pincushion). Gazebo can simulate this with the `<distortion>` tag.
+- **Resolution limits**: Pixel density affects minimum detectable object size.
+- **Field-of-view roll-off**: Real lenses lose sharpness at edges.
+
+#### Domain randomization techniques
+
+Domain randomization varies simulation parameters across training episodes to make policies robust to reality gaps:
+
+- **Visual randomization**: Randomize texture colors, lighting intensity, and shadow softness.
+- **Physics randomization**: Vary friction coefficients (±20%), mass (±10%), joint damping (±30%).
+- **Sensor randomization**: Vary noise levels, update rates, and latency.
+- **Environmental randomization**: Randomize floor friction, obstacle positions, and lighting direction.
+
+### Collision geometry vs visual geometry tradeoffs
+
+Visual geometry defines what the robot looks like. Collision geometry defines how the physics engine computes contacts. They should almost always be different.
+
+#### Why simplify collision geometry?
+
+- **Performance**: Physics engines check contacts between every pair of collision shapes. Complex meshes with thousands of triangles dramatically slow contact detection.
+- **Stability**: Concave meshes cause interpenetration and tunneling. Convex hulls and primitives (boxes, spheres, cylinders) are numerically stable.
+- **Accuracy**: Mesh collisions can miss thin features. Primitives provide predictable, analytically computable contact points.
+
+#### Common simplification strategies
+
+| Original geometry | Collision approximation | Tradeoff |
+|---|---|---|
+| Mesh arm with fingers | Capsule for each finger, cylinder for arm | Loses finger-level precision, gains speed |
+| Shoe with tread pattern | Flat box | Loses sole geometry, gains stability on ground contact |
+| Head with facial features | Sphere | Loses facial collision, gains broad-phase efficiency |
+| Table with curved legs | Box top + cylinder legs | Loses leg curvature, gains contact stability |
+
+#### Convex decomposition
+
+For concave meshes that need more fidelity, convex decomposition tools (V-HACD, CoACD) break a mesh into convex pieces:
+
+```
+# Using CoACD for convex decomposition
+pip install coacd
+python -c "
+import coacd
+mesh = coacd.Mesh('robot_hand.obj')
+parts = coacd.coacd(
+    mesh,
+    max_convex_hull=16,
+    preprocess_mode='auto',
+    resolution=500
+)
+for i, part in enumerate(parts):
+    part.export(f'collision_part_{i}.obj')
+"
+```
+
+### World building best practices
+
+#### Layout principles
+
+1. **Start simple**: Begin with a flat floor and a few primitives. Add complexity only when the base scenario works.
+2. **Use realistic dimensions**: Human doorways are 0.8 m wide. Standard table height is 0.75 m. Hallways are 1.2-1.8 m wide.
+3. **Define clear boundaries**: Walls should extend beyond the camera frustum to prevent agents from seeing empty space.
+4. **Texture for perception**: Use distinct textures for different surfaces so vision algorithms can distinguish them.
+
+#### Physics world configuration
+
+- **Time step**: 0.001 s (1 kHz) is standard for robotics. Slower time steps miss fast dynamics. Faster steps waste computation.
+- **Solver iterations**: 50-100 iterations for ODE. More iterations improve contact stability but increase computation.
+- **ERP/CFM tuning**: Increase ERP for stiffer joints. Increase CFM for more compliant (springy) behavior.
+- **Contact parameters**: Adjust friction, bounce, and max correcting velocity per material pair for realism.
+
+#### Common world objects
+
+| Object | Purpose | Physics considerations |
+|---|---|---|
+| Tables | Manipulation tasks | Must support heavy objects, high friction surface |
+| Chairs | Navigation obstacles | Complex geometry, use convex decomposition |
+| Doors | Transition between rooms | Hinge joint with limits, trigger zones |
+| Ramps | Incline locomotion testing | Smooth mesh, high friction to prevent sliding |
+| Stairs | Vertical navigation challenge | Step height 0.15-0.20 m, tread depth 0.25-0.30 m |
+| Narrow passages | Path planning constraints | Width 0.8-1.0 m for humanoid |
+| Moving obstacles | Dynamic avoidance | Apply velocity commands, collision triggers |
+
+### Performance optimization for large scenes
+
+#### Level of detail (LOD)
+
+Reduce visual geometry complexity for distant objects. Gazebo supports LOD through the `<lod>` element in SDF:
+
+```xml
+<link name="table_link">
+  <visual name="high_detail">
+    <geometry>
+      <mesh uri="model://table_high.dae"/>
+    </geometry>
+    <lod>0 20</lod>
+  </visual>
+  <visual name="low_detail">
+    <geometry>
+      <mesh uri="model://table_low.dae"/>
+    </geometry>
+    <lod>20 100</lod>
+  </visual>
+</link>
+```
+
+#### Spatial partitioning
+
+Gazebo uses octree-based spatial partitioning for broad-phase collision detection. Ensure static objects are marked `<static>true</static>` so the engine does not recompute their bounding boxes every frame.
+
+#### Contact filtering
+
+Limit which links can collide with each other using contact filters:
+
+```xml
+<contact>
+  <collision name="left_foot_collision">
+    <filter>
+      <minus/>
+      <group name="self_collide_group"/>
+    </filter>
+  </collision>
+</contact>
+```
+
+#### Parallel simulation
+
+Isaac Sim and NVIDIA's GPU physics engines support massive parallelization. For CPU-based Gazebo:
+
+- Run multiple independent worlds on separate threads.
+- Reduce sensor resolution for non-critical sensors.
+- Use `<always_on>false</always_on>` for sensors not needed every frame.
+
+#### Memory management
+
+- Use primitive shapes (boxes, cylinders, spheres) instead of meshes when possible.
+- Compress texture maps to 1024x1024 or smaller.
+- Remove unused models from the world file.
+- Avoid loading the entire model database; reference only needed models.
+
 ## Mini case study: apartment assistant
 
 A humanoid assistant must carry a bottle from the table to the shelf. In simulation, define:
@@ -50,45 +1081,115 @@ A humanoid assistant must carry a bottle from the table to the shelf. In simulat
 - Success criteria: no collision, object identified, object delivered, robot remains stable.
 - Failure states: blocked path, low confidence object detection, unreachable shelf, unstable pose.
 
-## Deep dive subtopics
+### Detailed test matrix
 
-### Robot description files
+| Trial | Condition | Expected behavior |
+|---|---|---|
+| 1 | Clear path, known object | Navigate, grasp, deliver |
+| 2 | Narrow passage blocked by chair | Replan path, avoid collision |
+| 3 | Object moved to different table | Update detection, navigate to new location |
+| 4 | Low lighting condition | Maintain detection with reduced confidence |
+| 5 | Human walks through scene | Pause, yield, resume after clear |
+| 6 | Object is out of reach | Report failure, request human assistance |
+| 7 | Slippery floor surface | Reduce speed, increase balance corrections |
 
-Robot description files define what the simulator and robotics stack know about the robot. URDF is commonly used for links, joints, visual geometry, collision geometry, and inertial properties. SDF can represent richer simulation worlds and models.
+## Sim-to-real transfer techniques
 
-| Geometry type | Purpose |
-|---|---|
-| Visual geometry | What the robot looks like to humans |
-| Collision geometry | What the physics engine uses for contact |
-| Inertial geometry | Mass and inertia used for dynamics |
+The reality gap between simulation and the physical world is the primary challenge in deploying sim-trained policies.
 
-### Sensor simulation
+### System identification
 
-Sensors let perception and navigation code run before hardware is available. Simulated sensors should include realistic constraints: field of view, range, update rate, noise, occlusion, and calibration assumptions. A perfect simulated sensor can make a weak algorithm look stronger than it is.
+System identification (SysID) measures real hardware properties and replicates them in simulation:
 
-### Scenario design
+1. **Mass and inertia**: Weigh each link and compute inertia from geometry or CAD models.
+2. **Friction coefficients**: Drag tests on real surfaces measure static and kinetic friction.
+3. **Joint friction**: Apply known torques and measure joint displacement.
+4. **Sensor calibration**: Run intrinsic calibration (camera intrinsics, IMU bias) and extrinsic calibration (sensor-to-robot transforms).
 
-A useful simulation scenario has a purpose. Add the specific difficulty the behavior must handle:
+### Domain adaptation strategies
 
-- Narrow passage for navigation.
-- Similar-looking objects for perception.
-- Moving obstacle for safety.
-- Poor lighting for vision.
-- Unreachable target for failure recovery.
+- **Teacher-student training**: Train in simulation with privileged information (ground-truth state), then distill into a student policy that uses only real-world observable inputs.
+- **Sim-to-real fine-tuning**: Pre-train in simulation, then fine-tune on a small amount of real-world data.
+- **Residual policy learning**: Use a sim-trained base policy and learn a residual correction from real data.
 
-### Evaluation metrics
+### Domain randomization checklist
 
-| Metric | Why it matters |
-|---|---|
-| Collision count | Safety and path quality |
-| Time to goal | Efficiency |
-| Localization drift | Navigation reliability |
-| Object detection confidence | Perception quality |
-| Recovery success rate | Robustness |
+| Parameter | Randomization range | Rationale |
+|---|---|---|
+| Ground friction | 0.5-1.2 | Floor materials vary widely |
+| Joint damping | ±30% of nominal | Manufacturing tolerances |
+| Motor strength | ±15% of nominal | Battery voltage and temperature effects |
+| Sensor noise | ±50% of nominal | Environmental conditions affect noise |
+| Object mass | ±20% of nominal | Real objects have unknown weight |
+| Lighting intensity | 0.5-2.0x | Indoor/outdoor lighting variation |
+| Camera color balance | ±30% per channel | Different cameras, white balance settings |
+| Gravity | 9.78-9.83 m/s² | Altitude and latitude effects |
 
-### Sim-to-real caution
+### Evaluation in simulation before real deployment
 
-Sim-to-real transfer is not automatic. The real world adds sensor noise, actuator limits, lighting variation, battery behavior, floor friction, network delay, and hardware wear. Treat simulation as a filter that removes obvious failures, not a guarantee of success.
+1. Run 100+ simulation episodes with full domain randomization.
+2. Measure success rate, collision frequency, and task completion time.
+3. Test worst-case scenarios (extreme noise, maximum friction variation).
+4. Verify that no single randomization seed causes catastrophic failure.
+5. Deploy to real hardware with a spotter and emergency stop ready.
+
+## Common simulation pitfalls
+
+### 1. Interpenetration and explosion
+
+**Symptom**: Robot links pass through each other, then the physics engine applies massive correction forces causing the model to fly apart.
+
+**Cause**: Time step too large, contact parameters misconfigured, or collision geometry is concave.
+
+**Fix**: Reduce `max_step_size` to 0.0005 s, increase solver iterations, use convex collision geometry.
+
+### 2. Floating-base instability
+
+**Symptom**: Robot drifts or oscillates in free space without ground contact.
+
+**Cause**: Missing ground plane, incorrect gravity direction, or URDF coordinate frame errors.
+
+**Fix**: Verify ground plane is loaded, check `<gravity>` direction is negative Z, validate URDF origins.
+
+### 3. Joint limit violations
+
+**Symptom**: Robot joints bend beyond physical limits or oscillate at limits.
+
+**Cause**: Joint limits not defined in URDF, or PID gains are too aggressive.
+
+**Fix**: Add `<limit>` elements to all joints, tune PID controllers, add joint damping.
+
+### 4. Sensor aliasing
+
+**Symptom**: Perception algorithms work in simulation but fail in reality.
+
+**Cause**: Simulated sensors update at perfect intervals with no jitter or dropped frames.
+
+**Fix**: Add temporal noise to sensor update rates, simulate occasional frame drops, add latency.
+
+### 5. Gravity and inertia mismatch
+
+**Symptom**: Robot falls over immediately or moves sluggishly.
+
+**Cause**: Inertia values are incorrect, or mass is unrealistic.
+
+**Fix**: Use CAD software to compute accurate inertia tensors, or use measured values from hardware.
+
+### 6. URDF coordinate frame errors
+
+**Symptom**: Robot parts appear in wrong locations or TF tree is broken.
+
+**Cause**: Incorrect `<origin>` values in joints or links.
+
+**Fix**: Visualize the URDF in RViz first, verify each joint origin against the robot's kinematic specification.
+
+### 7. Model loading failures
+
+**Symptom**: Gazebo reports "model not found" or crashes on startup.
+
+**Cause**: Model paths are incorrect, meshes are missing, or Gazebo model database is not configured.
+
+**Fix**: Use absolute paths, ensure all mesh files exist, set `GAZEBO_MODEL_PATH` environment variable.
 
 ## Practical lab
 
@@ -105,6 +1206,12 @@ Sim-to-real transfer is not automatic. The real world adds sensor noise, actuato
 1. Why are collision meshes important?
 1. What is one advantage of testing sensors in simulation?
 1. Why can simulation results fail in the real world?
+1. Name the four physics engines supported by Gazebo.
+1. What is domain randomization?
+1. Why should collision geometry be simpler than visual geometry?
+1. What is the recommended time step for robotics simulation?
+1. What is the purpose of the `<inertial>` element in URDF?
+1. How does the ROS TCP Connector differ from direct ROS topic subscription?
 
 ### Answer key
 
@@ -112,6 +1219,31 @@ Sim-to-real transfer is not automatic. The real world adds sensor noise, actuato
 1. They help the simulator detect contact and prevent impossible motion.
 1. They allow perception and navigation pipelines to be tested before hardware is available.
 1. Reality includes noise, friction differences, lighting changes, calibration errors, and hardware limits.
+1. ODE, Bullet, DART, and MuJoCo.
+1. A technique that varies simulation parameters (physics, visuals, sensors) across training episodes to make policies robust to reality gaps.
+1. Complex meshes slow contact detection and cause instability. Simplified primitives (boxes, spheres, capsules) are faster and more numerically stable.
+1. 0.001 s (1 kHz) for standard robotics tasks.
+1. It defines mass and the 3x3 inertia tensor used by the dynamics engine to compute forces and torques during simulation.
+1. The TCP Connector streams data over a network socket between Unity and ROS 2, while direct subscription uses the ROS 2 DDS middleware within the same process.
+
+## Glossary
+
+| Term | Definition |
+|---|---|
+| **URDF** | Unified Robot Description Format. An XML format defining robot kinematics, dynamics, and visual/collision geometry as a tree of links and joints. |
+| **SDF** | Simulation Description Format. An XML format used by Gazebo to describe complete simulation worlds including physics, lighting, and models. |
+| **Digital twin** | A simulated representation of a physical system used for testing, training, and monitoring before or alongside real-world deployment. |
+| **Domain randomization** | Varying simulation parameters (friction, lighting, noise, mass) across episodes to make learned policies robust to the sim-to-real gap. |
+| **Sim-to-real gap** | The difference between simulated and real-world behavior caused by unmodeled physics, sensor noise, and environmental variability. |
+| **ODE** | Open Dynamics Engine. A C++ library for simulating rigid body dynamics, the default physics engine in Gazebo. |
+| **DART** | Dynamic Animation and Robotics Toolkit. A dynamics library focused on accurate simulation of articulated rigid body systems. |
+| **MuJoCo** | Multi-Joint dynamics with Contact. A physics engine optimized for control and reinforcement learning with fast contact simulation. |
+| **IMU** | Inertial Measurement Unit. A sensor combining accelerometers and gyroscopes to measure linear acceleration and angular velocity. |
+| **LiDAR** | Light Detection and Ranging. A sensor that measures distances to surrounding objects using laser pulses, producing 3D point clouds. |
+| **TF tree** | Transform tree. A hierarchical representation of coordinate frame relationships published by the robot_state_publisher. |
+| **Convex decomposition** | Breaking a concave mesh into multiple convex pieces for use as collision geometry. |
+| **System identification** | The process of measuring real hardware properties (mass, friction, damping) and replicating them in simulation. |
+| **ROS TCP Connector** | A network bridge that streams ROS 2 topics between Unity and a ROS 2 workspace over TCP sockets. |
 
 ## Safety and hardware notes
 
@@ -119,5 +1251,3 @@ Sim-to-real transfer is not automatic. The real world adds sensor noise, actuato
 <h3>Simulation is evidence, not permission</h3>
 <p>A passing simulation does not prove the robot is safe. Physical deployment still needs local safeguards, emergency stops, calibrated sensors, and conservative speed limits.</p>
 </div>
-
-

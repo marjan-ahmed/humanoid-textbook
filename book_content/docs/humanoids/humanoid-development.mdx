@@ -1,111 +1,1235 @@
 ---
 sidebar_position: 1
 title: Humanoid Development
-description: Humanoid robot kinematics, balance control, manipulation, human-robot interaction, and hardware choices for locomotion and deployment.
-keywords: [humanoid robot, kinematics, balance control, manipulation, locomotion, humanoid hardware]
+description: >
+  Comprehensive guide to humanoid robot engineering: kinematics, balance control,
+  manipulation, human-robot interaction, hardware selection, lab budget planning,
+  and deployment strategies for educational and research environments.
+keywords:
+  - humanoid robot
+  - bipedal locomotion
+  - forward kinematics
+  - inverse kinematics
+  - center of mass
+  - gait planning
+  - force control
+  - URDF
+  - ROS 2
+  - humanoid hardware
+  - Unitree G1
+  - Unitree H1
+  - Robotis OP3
+  - Hiwonder TonyPi
+  - social robotics
+  - proxemics
+  - grasp planning
+  - balance control
+  - zero moment point
+  - lab budget
 ---
 
 # Humanoid Development
 
 ## Learning outcomes
 
-- Identify the major challenges in humanoid locomotion and manipulation.
-- Compare proxy robots, miniature humanoids, and premium humanoid platforms.
-- Explain why human-centered environments make humanoid form useful.
-- Choose a lab strategy based on cost, safety, and learning value.
+By the end of this chapter, you will be able to:
+
+- Identify the major engineering challenges in bipedal locomotion, whole-body manipulation, and real-time balance control for humanoid robots.
+- Explain forward kinematics, inverse kinematics, and Jacobian-based control for multi-DOF articulated systems.
+- Compute center of mass trajectories and evaluate static and dynamic stability criteria including the zero moment point (ZMP) and capture point.
+- Design and compare gait patterns for walking, running, stair climbing, and terrain adaptation.
+- Implement force and torque control strategies for dexterous manipulation with humanoid hands.
+- Apply social robotics principles including proxemics, gesture, and intent communication to human-robot interaction.
+- Compare humanoid hardware platforms (Unitree G1, H1, Go2, Robotis OP3, Hiwonder TonyPi) on compute, actuators, sensors, payload, and price.
+- Build a staged lab strategy that scales from simulation-only learning to full humanoid deployment within realistic budget and safety constraints.
 
 ## Concept explanation
 
-Humanoid robots are designed for spaces built around people. Doors, stairs, tables, handles, shelves, and tools all assume a human-like body. That makes humanoids promising for human environments, but difficult to control.
+### Why humanoid form factors matter
 
-A humanoid must coordinate balance, locomotion, perception, manipulation, and social interaction. Small errors can compound quickly: a foot placement error affects balance, balance affects arm reach, arm reach affects grasping, and grasping affects task success.
+Humanoid robots are engineered for environments built around people. Doors, staircases, tables, tool handles, shelves, and kitchen appliances all assume a human-like body plan: an upright torso, two articulated arms with hands, two legs with ankle and hip joints, and a head carrying cameras and microphones. That morphological alignment means a humanoid can in principle use the same tools, navigate the same pathways, and interact with the same interfaces as a human operator. This is the central thesis of the humanoid form factor: embodiment in human spaces reduces the need for environmental modification.
+
+However, this morphological advantage comes at enormous control cost. A humanoid with 28 degrees of freedom (DOF) must coordinate 28 actuators simultaneously while maintaining dynamic balance on two feet with a small support polygon. Small errors compound nonlinearly: a 5-millimeter foot placement error shifts the center of mass, which destabilizes the torso, which forces the arms to swing for counterbalance, which disrupts any ongoing manipulation task. The coupling between subsystems makes humanoid robotics one of the most demanding problems in applied control theory.
+
+### The control stack
+
+A humanoid control stack is organized in layers, each operating at a different frequency and abstraction level:
+
+1. **Joint-level torque control** (1 kHz): Each actuator receives a torque command based on a PID or impedance controller. This layer handles low-level safety limits, current saturation, and backlash compensation.
+2. **Whole-body control** (500 Hz): A quadratic program or operational-space controller distributes desired end-effector forces and torques across all joints while respecting friction cones, torque limits, and balance constraints.
+3. **Motion planning** (50-100 Hz): A planner generates feasible trajectories for footsteps, arm reaches, and torso reorientation. It uses preview control or model predictive control (MPC) to anticipate future steps.
+4. **Perception** (10-30 Hz): Depth cameras, lidar, and tactile sensors feed a state estimator that localizes the robot, identifies obstacles, and tracks humans in the scene.
+5. **Task-level reasoning** (1-10 Hz): A high-level planner or learned policy selects tasks, allocates resources, and handles failures and retries.
+
+### Key engineering challenges
+
+| Challenge | Why it is hard | Failure mode |
+|---|---|---|
+| Dynamic balance | The support polygon is small; the robot is always partially falling | Fall, hardware damage |
+| Contact transitions | Foot-ground contact is hybrid (discrete + continuous) | Stumble, slip |
+| Whole-body coordination | 20+ DOF are coupled through balance and momentum | Task failure, oscillation |
+| Perception under motion | Camera images blur and shift as the body moves | Localization error |
+| Battery life | High-power actuators drain batteries in minutes | Mission timeout |
+| Payload vs. weight | More payload requires larger actuators, which add weight | Reduced mobility |
+| Safety around humans | Rigid links and high-torque actuators can injure people | Injury, liability |
 
 ## Visual model: humanoid control layers
 
 <div className="visual-panel">
 <div className="visual-flow">
-<div className="flow-step"><span>Body</span>Links, joints, actuators, hands</div>
-<div className="flow-step"><span>Balance</span>Center of mass and gait control</div>
-<div className="flow-step"><span>Perception</span>Depth, object state, human presence</div>
-<div className="flow-step"><span>Manipulation</span>Reach, grasp, force, release</div>
-<div className="flow-step"><span>Interaction</span>Speech, gesture, intent, feedback</div>
+<div className="flow-step"><span>Body</span>Links, joints, actuators, hands, feet</div>
+<div className="flow-step"><span>Balance</span>Center of mass, ZMP, capture point, gait phase</div>
+<div className="flow-step"><span>Perception</span>Depth, lidar, IMU, force/torque, object state, human presence</div>
+<div className="flow-step"><span>Motion Planning</span>Footstep plan, arm trajectory, whole-body QP</div>
+<div className="flow-step"><span>Manipulation</span>Reach, grasp, force regulation, release</div>
+<div className="flow-step"><span>Interaction</span>Speech, gaze, gesture, intent, proxemics</div>
 </div>
 </div>
+
+## Deep dive subtopics
+
+### Forward and inverse kinematics
+
+#### Forward kinematics
+
+Forward kinematics (FK) computes the position and orientation of each link given a vector of joint angles. For a serial chain of $n$ joints, the FK is expressed using homogeneous transformation matrices:
+
+$$
+T_i^\{i-1\} = \begin\{bmatrix\}
+R_i(\theta_i) & d_i \\
+0 & 1
+\end\{bmatrix\}
+$$
+
+where $R_i(\theta_i)$ is the $3 \times 3$ rotation matrix for joint $i$ (determined by the Denavit-Hartenberg parameters $\alpha_i, a_i, d_i, \theta_i$) and $d_i$ is the translation vector. The pose of the end-effector relative to the base is:
+
+$$
+T_n^0 = T_1^0 \cdot T_2^1 \cdot \ldots \cdot T_n^\{n-1\} = \prod_\{i=1\}^\{n\} T_i^\{i-1\}
+$$
+
+The position of the end-effector is extracted from the last column of $T_n^0$, and its orientation from the upper-left $3 \times 3$ submatrix.
+
+#### Inverse kinematics
+
+Inverse kinematics (IK) answers the harder question: given a desired end-effector pose $T_d$, find the joint vector $\mathbf\{q\}$ such that $FK(\mathbf\{q\}) = T_d$. For redundant manipulators (more DOF than the task requires), IK is underdetermined and requires additional optimization criteria (e.g., minimize joint torque, avoid singularities, maximize manipulability).
+
+The Jacobian-based IK solution uses the geometric Jacobian $J(\mathbf\{q\})$:
+
+$$
+\dot\{\mathbf\{x\}\} = J(\mathbf\{q\}) \dot\{\mathbf\{q\}\}
+$$
+
+A damped least-squares IK step is:
+
+$$
+\Delta \mathbf\{q\} = J^T (J J^T + \lambda^2 I)^\{-1\} \Delta \mathbf\{x\}
+$$
+
+where $\Delta \mathbf\{x\}$ is the pose error and $\lambda$ is the damping factor that prevents ill-conditioning near singularities. In practice, IK is solved at every control cycle (50-500 Hz) to track time-varying trajectories.
+
+#### Kinematics for humanoid legs
+
+For a humanoid leg with 6 DOF (3 at the hip, 1 at the knee, 2 at the ankle), IK computes the foot pose relative to the hip given joint angles, or conversely computes joint angles to place the foot at a desired location. The leg IK is critical for:
+
+- **Footstep placement**: Computing hip and knee angles to place the foot at a target position during swing phase.
+- **Balance adjustment**: Computing ankle angles to tilt the torso relative to the ground.
+- **Terrain adaptation**: Adjusting foot orientation to match slope or stair height.
+
+### Center of mass and balance
+
+#### Center of mass calculation
+
+The center of mass (CoM) of a humanoid is the mass-weighted average position of all links:
+
+$$
+\mathbf\{r\}_\{CoM\} = \frac\{\sum_\{i=1\}^\{N\} m_i \mathbf\{r\}_i\}\{\sum_\{i=1\}^\{N\} m_i\}
+$$
+
+where $m_i$ is the mass of link $i$ and $\mathbf\{r\}_i$ is the position of link $i$'s center of mass in the world frame. For a humanoid with 20 links, this requires tracking the FK of every link and summing their contributions.
+
+The CoM velocity is:
+
+$$
+\dot\{\mathbf\{r\}\}_\{CoM\} = \frac\{\sum_\{i=1\}^\{N\} m_i \dot\{\mathbf\{r\}\}_i\}\{\sum_\{i=1\}^\{N\} m_i\}
+$$
+
+and the CoM acceleration is:
+
+$$
+\ddot\{\mathbf\{r\}\}_\{CoM\} = \frac\{\sum_\{i=1\}^\{N\} m_i \ddot\{\mathbf\{r\}\}_i\}\{\sum_\{i=1\}^\{N\} m_i\}
+$$
+
+For balance control, the CoM projection onto the ground plane must remain within or near the support polygon (the convex hull of foot contact points).
+
+#### Zero moment point (ZMP)
+
+The ZMP is the point on the ground where the total moment of ground reaction forces about the horizontal axes is zero. The ZMP condition for balance is:
+
+$$
+\mathbf\{p\}_\{ZMP\} = \mathbf\{r\}_\{CoM\} - \frac\{\ddot\{\mathbf\{r\}\}_\{CoM\} \cdot z_\{CoM\}\}\{g + \ddot\{z\}_\{CoM\}\}
+$$
+
+where $z_\{CoM\}$ is the CoM height and $g$ is gravitational acceleration. If $\mathbf\{p\}_\{ZMP\}$ lies within the support polygon, the robot is statically stable. If it lies outside, the robot will tip.
+
+#### Capture point
+
+The capture point (CP) extends ZMP analysis to dynamic walking. It is the point on the ground where the robot would need to place its next footstep to come to a complete stop:
+
+$$
+\mathbf\{r\}_\{CP\} = \mathbf\{r\}_\{CoM\} + \frac\{\dot\{\mathbf\{r\}\}_\{CoM\}\}\{\omega_0\}
+$$
+
+where $\omega_0 = \sqrt\{g / z_\{CoM\}\}$ is the natural frequency of the linear inverted pendulum model. If the capture point is within the support polygon, the robot can stop. If it is outside, the robot cannot stop without falling or taking an additional step.
+
+#### Linear inverted pendulum model (LIPM)
+
+The LIPM is the simplest dynamic model for bipedal walking. It assumes the CoM moves at constant height $z_\{CoM\}$, and the horizontal dynamics decouple:
+
+$$
+\ddot\{x\} = \frac\{g\}\{z_\{CoM\}\} (x - p_x)
+$$
+$$
+\ddot\{y\} = \frac\{g\}\{z_\{CoM\}\} (y - p_y)
+$$
+
+where $(p_x, p_y)$ is the ZMP location. This linear model enables preview control and MPC for gait planning.
+
+### Gait patterns
+
+#### Walking gait
+
+A bipedal walking gait consists of alternating stance and swing phases:
+
+1. **Double support**: Both feet on the ground. The CoM transfers from one foot to the other. Duration: 10-20% of gait cycle.
+2. **Single support (stance)**: One foot is planted. The CoM arcs over the stance foot. Duration: 40-50% of gait cycle.
+3. **Swing**: The free leg swings forward. The knee flexes to clear the ground. Duration: 30-40% of gait cycle.
+
+The walking pattern generator computes a CoM trajectory (typically a sinusoidal or cubic spline in the lateral and sagittal planes) and footstep locations, then uses the LIPM or preview control to generate joint trajectories.
+
+#### Running gait
+
+Running introduces a flight phase (both feet off the ground) and requires higher actuator power. The key differences from walking:
+
+- **Flight phase**: 20-40% of gait cycle. The CoM follows a ballistic parabola.
+- **Higher impact forces**: Landing forces can reach 2-3x body weight.
+- **Elastic energy storage**: Tendons or springs store and release energy during push-off.
+- **Shorter ground contact time**: Requires faster actuator response.
+
+Running gaits are typically generated using spring-mass models or centroidal momentum dynamics.
+
+#### Stair climbing
+
+Stair climbing requires:
+- **Precise foot placement**: Each step must land on a tread with sufficient clearance.
+- **High knee lift**: The swing leg must clear the riser height.
+- **Vertical CoM displacement**: The CoM must rise by the riser height each step.
+- **Higher joint torques**: Hip and knee torques increase significantly due to lifting the body weight against gravity.
+
+Stair climbing is often planned using a stepped CoM trajectory and modified footstep planner that accounts for discrete height changes.
+
+#### Terrain adaptation
+
+Uneven terrain requires:
+- **Foot orientation control**: The ankle must conform to ground slope.
+- **Variable step height**: The swing leg trajectory must adapt to obstacles.
+- **Real-time perception**: A depth camera or force sensor detects terrain geometry ahead of the robot.
+- **Reactive replanning**: If foot contact is unexpected (e.g., slipping), the planner must immediately generate a recovery step.
+
+### Force and torque control for manipulation
+
+#### Impedance control
+
+Impedance control regulates the relationship between end-effector position error and interaction force:
+
+$$
+\mathbf\{F\} = K (\mathbf\{x\}_d - \mathbf\{x\}) + D (\dot\{\mathbf\{x\}\}_d - \dot\{\mathbf\{x\}\})
+$$
+
+where $K$ is the stiffness matrix and $D$ is the damping matrix. A compliant humanoid arm with low $K$ can safely contact objects without excessive force, while a stiff arm with high $K$ achieves precise positioning.
+
+#### Grasp planning
+
+Grasp planning for humanoid hands involves:
+
+1. **Pre-grasp configuration**: Move the hand to a position above the object with fingers open.
+2. **Approach trajectory**: Move along the approach vector (typically normal to the grasp surface).
+3. **Finger closure**: Close fingers until contact is detected via tactile sensors or motor current.
+4. **Force regulation**: Apply sufficient grip force to prevent slip without crushing the object.
+5. **Lift verification**: Confirm the object is held by monitoring force/torque at the wrist.
+
+The grasp quality is evaluated using metrics such as the grasp wrench space (GWS) or the epsilon quality measure, which quantifies the maximum disturbance wrench the grasp can resist.
+
+#### Contact sequencing
+
+For multi-contact manipulation (e.g., bracing against a table while reaching), the robot must sequence contacts to maintain balance while achieving the task. The contact planner selects:
+
+- Which links contact the environment
+- The order of contact establishment and release
+- The forces applied at each contact
+
+### Social robotics and proxemics
+
+#### Proxemics zones
+
+Proxemics defines four spatial zones for human-human interaction, which apply directly to human-robot interaction:
+
+| Zone | Distance | Use case for robots |
+|---|---|---|
+| Intimate | 0-0.45 m | Medical robots, assistive care |
+| Personal | 0.45-1.2 m | Collaborative manipulation, handover |
+| Social | 1.2-3.6 m | Service robots, reception, greeting |
+| Public | >3.6 m | Warehouse, patrol, delivery |
+
+#### Legibility and predictability
+
+A socially competent robot communicates its intent so that humans can predict what it will do next:
+
+- **Legibility**: The robot's motion should be readable by the human observer. For example, a reaching motion should have a clear, direct trajectory rather than an ambiguous curved path.
+- **Predictability**: The robot should behave consistently in repeated situations so the human can learn to anticipate its actions.
+- **Velocity profiling**: Accelerating toward the human may feel aggressive; a bell-shaped velocity profile feels more natural.
+
+#### gaze and gesture
+
+- **Gaze direction**: Looking at the object before reaching signals intent. Looking at the human signals attention or request for confirmation.
+- **Head orientation**: Turning the head toward the next motion direction before the body moves improves legibility.
+- **Gesture**: A pointing gesture or a nod can communicate intent without speech.
+- **Personal space respect**: The robot should pause or slow down when entering the personal zone, giving the human time to react.
+
+## Humanoid robot specifications
+
+The following table compares common humanoid and legged platforms suitable for educational and research labs:
+
+| Platform | Type | DOF | Height | Weight | Compute | Actuators | Sensors | Price (approx.) |
+|---|---|---|---|---|---|---|---|---|
+| Unitree G1 | Full humanoid | 23 | 1.27 m | 35 kg | NVIDIA Orin (up to 100 TOPS) | High-torque electric | RGB-D, lidar, IMU, force/torque | $16,000-$30,000 |
+| Unitree H1 | Full humanoid | 19 | 1.80 m | 47 kg | NVIDIA Orin (up to 100 TOPS) | High-torque electric | RGB-D, lidar, IMU, force/torque | $30,000-$60,000 |
+| Unitree Go2 | Quadruped | 12 | 0.34 m | 12 kg | NVIDIA Orin (up to 100 TOPS) | Electric motors | RGB-D, lidar, IMU | $1,600-$3,000 |
+| Robotis OP3 | Mini humanoid | 20 | 0.50 m | 3.5 kg | Intel NUC or Jetson | Dynamixel servos | Camera, IMU | $5,000-$8,000 |
+| Hiwonder TonyPi | Educational humanoid | 19 | 0.45 m | 1.8 kg | Raspberry Pi 4B or Jetson Nano | Hiwonder servos | Camera, IMU | $1,200-$2,500 |
+
+### Actuator comparison
+
+| Platform | Torque (hip) | Torque (knee) | Peak power | Control bandwidth |
+|---|---|---|---|---|
+| Unitree G1 | ~120 Nm | ~45 Nm | ~200 W | High (custom PMSM) |
+| Unitree H1 | ~220 Nm | ~100 Nm | ~400 W | High (custom PMSM) |
+| Unitree Go2 | ~30 Nm | ~25 Nm | ~30 W | Medium |
+| Robotis OP3 | ~1.5 Nm | ~1.5 Nm | ~3 W | Low (servo) |
+| Hiwonder TonyPi | ~0.5 Nm | ~0.5 Nm | ~0.5 W | Low (servo) |
+
+### Software ecosystem
+
+| Platform | ROS 2 support | Isaac ROS | SLAM | Reinforcement learning | Simulation |
+|---|---|---|---|---|---|
+| Unitree G1/H1 | Full (unitree_ros2) | Yes | Yes | Yes (Isaac Gym) | Isaac Sim, MuJoCo |
+| Unitree Go2 | Full (unitree_ros2) | Yes | Yes | Yes (Isaac Gym) | Isaac Sim, MuJoCo |
+| Robotis OP3 | Partial (OP3 ROS package) | No | Limited | Limited | Webots, Gazebo |
+| Hiwonder TonyPi | Partial (Hiwonder SDK) | No | No | No | Limited |
+
+### URDF example for a simplified humanoid
+
+The following URDF defines a minimal humanoid with a torso, two 3-DOF legs, and a head. Each joint uses a revolute actuator with torque and velocity limits.
+
+```xml
+<?xml version="1.0"?>
+<robot name="simple_humanoid">
+  <!-- Material definitions -->
+  <material name="torso_mat">
+    <color rgba="0.2 0.2 0.8 1.0"/>
+  </material>
+  <material name="leg_mat">
+    <color rgba="0.8 0.2 0.2 1.0"/>
+  </material>
+
+  <!-- Base link (pelvis) -->
+  <link name="pelvis">
+    <visual>
+      <geometry><box size="0.3 0.15 0.1"/></geometry>
+      <material name="torso_mat"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.3 0.15 0.1"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.01" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Torso link -->
+  <link name="torso">
+    <visual>
+      <geometry><box size="0.25 0.15 0.4"/></geometry>
+      <material name="torso_mat"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.25 0.15 0.4"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0"/>
+      <inertia ixx="0.05" iyy="0.05" izz="0.03" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Torso joint -->
+  <joint name="torso_joint" type="revolute">
+    <parent link="pelvis"/>
+    <child link="torso"/>
+    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.5" upper="0.5" effort="50" velocity="1.0"/>
+  </joint>
+
+  <!-- Left hip link -->
+  <link name="left_hip">
+    <visual>
+      <geometry><cylinder radius="0.05" length="0.15"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.05" length="0.15"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="1.5"/>
+      <inertia ixx="0.002" iyy="0.002" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Left hip pitch joint -->
+  <joint name="left_hip_pitch" type="revolute">
+    <parent link="pelvis"/>
+    <child link="left_hip"/>
+    <origin xyz="0.1 0 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="1.0" effort="40" velocity="4.0"/>
+  </joint>
+
+  <!-- Left thigh link -->
+  <link name="left_thigh">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.3"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.04" length="0.3"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="3.0"/>
+      <origin xyz="0 0 -0.15"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.002" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Left hip roll joint -->
+  <joint name="left_hip_roll" type="revolute">
+    <parent link="left_hip"/>
+    <child link="left_thigh"/>
+    <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.5" upper="0.5" effort="40" velocity="4.0"/>
+  </joint>
+
+  <!-- Left knee link -->
+  <link name="left_knee">
+    <visual>
+      <geometry><cylinder radius="0.035" length="0.3"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.035" length="0.3"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="2.5"/>
+      <origin xyz="0 0 -0.15"/>
+      <inertia ixx="0.008" iyy="0.008" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Left knee joint -->
+  <joint name="left_knee" type="revolute">
+    <parent link="left_thigh"/>
+    <child link="left_knee"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0" upper="2.5" effort="30" velocity="4.0"/>
+  </joint>
+
+  <!-- Left foot link -->
+  <link name="left_foot">
+    <visual>
+      <geometry><box size="0.15 0.08 0.03"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.15 0.08 0.03"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Left ankle joint -->
+  <joint name="left_ankle" type="revolute">
+    <parent link="left_knee"/>
+    <child link="left_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="15" velocity="4.0"/>
+  </joint>
+
+  <!-- Right leg (mirror of left) -->
+  <link name="right_hip">
+    <visual>
+      <geometry><cylinder radius="0.05" length="0.15"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.05" length="0.15"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="1.5"/>
+      <inertia ixx="0.002" iyy="0.002" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="right_hip_pitch" type="revolute">
+    <parent link="pelvis"/>
+    <child link="right_hip"/>
+    <origin xyz="-0.1 0 -0.05" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.0" upper="1.0" effort="40" velocity="4.0"/>
+  </joint>
+
+  <link name="right_thigh">
+    <visual>
+      <geometry><cylinder radius="0.04" length="0.3"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.04" length="0.3"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="3.0"/>
+      <origin xyz="0 0 -0.15"/>
+      <inertia ixx="0.01" iyy="0.01" izz="0.002" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="right_hip_roll" type="revolute">
+    <parent link="right_hip"/>
+    <child link="right_thigh"/>
+    <origin xyz="0 0 -0.075" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-0.5" upper="0.5" effort="40" velocity="4.0"/>
+  </joint>
+
+  <link name="right_knee">
+    <visual>
+      <geometry><cylinder radius="0.035" length="0.3"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><cylinder radius="0.035" length="0.3"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="2.5"/>
+      <origin xyz="0 0 -0.15"/>
+      <inertia ixx="0.008" iyy="0.008" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="right_knee" type="revolute">
+    <parent link="right_thigh"/>
+    <child link="right_knee"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="0" upper="2.5" effort="30" velocity="4.0"/>
+  </joint>
+
+  <link name="right_foot">
+    <visual>
+      <geometry><box size="0.15 0.08 0.03"/></geometry>
+      <material name="leg_mat"/>
+    </visual>
+    <collision>
+      <geometry><box size="0.15 0.08 0.03"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="1.0"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <joint name="right_ankle" type="revolute">
+    <parent link="right_knee"/>
+    <child link="right_foot"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-0.8" upper="0.8" effort="15" velocity="4.0"/>
+  </joint>
+
+  <!-- Head link -->
+  <link name="head">
+    <visual>
+      <geometry><sphere radius="0.08"/></geometry>
+      <material name="torso_mat"/>
+    </visual>
+    <collision>
+      <geometry><sphere radius="0.08"/></geometry>
+    </collision>
+    <inertial>
+      <mass value="1.5"/>
+      <inertia ixx="0.001" iyy="0.001" izz="0.001" ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+  </link>
+
+  <!-- Head pan joint -->
+  <joint name="head_pan" type="revolute">
+    <parent link="torso"/>
+    <child link="head"/>
+    <origin xyz="0 0 0.25" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-1.5" upper="1.5" effort="5" velocity="4.0"/>
+  </joint>
+</robot>
+```
+
+### Joint controller configuration
+
+The following ROS 2 YAML configuration defines a joint-level PD controller for a humanoid leg. Each joint has position and velocity gains, torque limits, and safety thresholds.
+
+```yaml
+# Joint controller configuration for humanoid leg
+# File: config/joint_controllers.yaml
+
+controller_manager:
+  ros__parameters:
+    update_rate: 500  # Hz
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    left_hip_pitch_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+      joints:
+        - left_hip_pitch
+      command_interfaces:
+        - position
+      state_interfaces:
+        - position
+        - velocity
+      state_publish_rate: 250.0
+      action_monitor_rate: 20.0
+      allow_partial_joints_goal: false
+
+    left_knee_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+      joints:
+        - left_knee
+      command_interfaces:
+        - position
+      state_interfaces:
+        - position
+        - velocity
+      state_publish_rate: 250.0
+      action_monitor_rate: 20.0
+
+    left_ankle_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+      joints:
+        - left_ankle
+      command_interfaces:
+        - position
+      state_interfaces:
+        - position
+        - velocity
+      state_publish_rate: 250.0
+      action_monitor_rate: 20.0
+
+    # Impedance controller for compliant interaction
+    left_hip_impedance_controller:
+      type: impedance_controller/ImpedanceController
+      joints:
+        - left_hip_pitch
+      command_interfaces:
+        - position
+        - velocity
+      state_interfaces:
+        - position
+        - velocity
+      state_publish_rate: 500.0
+
+      stiffness:
+        left_hip_pitch:
+          translational: [500.0, 500.0, 500.0]
+          rotational: [100.0, 100.0, 100.0]
+      damping:
+        left_hip_pitch:
+          translational: [50.0, 50.0, 50.0]
+          rotational: [10.0, 10.0, 10.0]
+
+# Safety parameters
+safety_limiter:
+  ros__parameters:
+    position_limits:
+      left_hip_pitch:
+        min: -2.0
+        max: 1.0
+      left_knee:
+        min: 0.0
+        max: 2.5
+      left_ankle:
+        min: -0.8
+        max: 0.8
+    velocity_limits:
+      left_hip_pitch: 4.0
+      left_knee: 4.0
+      left_ankle: 4.0
+    torque_limits:
+      left_hip_pitch: 40.0
+      left_knee: 30.0
+      left_ankle: 15.0
+```
+
+### Balance control algorithm
+
+The following pseudocode describes a real-time balance controller that computes ankle and hip torques to maintain the CoM above the support polygon during single-support phase.
+
+```python
+import numpy as np
+
+class BalanceController:
+    """
+    Real-time balance controller for bipedal humanoid.
+    Uses ZMP-based feedback with capture point regulation.
+    """
+
+    def __init__(self, mass, com_height, gravity=9.81):
+        self.mass = mass
+        self.com_height = com_height
+        self.gravity = gravity
+        self.omega_0 = np.sqrt(gravity / com_height)
+
+        # Feedback gains
+        self.kp_zmp = 500.0    # ZMP error proportional gain
+        self.kd_zmp = 100.0    # ZMP error derivative gain
+        self.kp_capture = 2.0  # Capture point gain
+        self.kd_capture = 0.5  # Capture point damping
+
+        # State limits
+        self.max_ankle_torque = 30.0  # Nm
+        self.max_hip_torque = 40.0    # Nm
+
+    def compute_com_state(self, joint_positions, joint_velocities, mass_properties):
+        """Compute CoM position and velocity from joint states."""
+        com_pos = np.zeros(3)
+        com_vel = np.zeros(3)
+        total_mass = 0.0
+
+        for i, link in enumerate(mass_properties):
+            m = link['mass']
+            r = link['com_offset']  # offset from joint
+            q = joint_positions[i]
+            qd = joint_velocities[i]
+
+            # Simplified: compute link COM in world frame
+            com_pos += m * (link['joint_pos'] + rotate(q, r))
+            com_vel += m * link['joint_vel']
+            total_mass += m
+
+        com_pos /= total_mass
+        com_vel /= total_mass
+        return com_pos, com_vel
+
+    def compute_zmp(self, com_pos, com_vel, com_accel):
+        """Compute zero moment point from CoM state."""
+        x_com, y_com = com_pos[0], com_pos[1]
+        x_ddot, y_ddot = com_accel[0], com_accel[1]
+        z_com = self.com_height
+
+        # ZMP position (sagittal and lateral)
+        p_zmp_x = x_com - (x_ddot * z_com) / (self.gravity + 0.0)
+        p_zmp_y = y_com - (y_ddot * z_com) / (self.gravity + 0.0)
+
+        return np.array([p_zmp_x, p_zmp_y])
+
+    def compute_capture_point(self, com_pos, com_vel):
+        """Compute capture point for dynamic stopping."""
+        return com_pos[:2] + com_vel[:2] / self.omega_0
+
+    def compute_support_polygon(self, foot_positions):
+        """Compute convex hull of foot contact points."""
+        # Simplified: use foot corners
+        points = []
+        for foot in foot_positions:
+            center = foot['position']
+            half_l = foot['length'] / 2
+            half_w = foot['width'] / 2
+            R = rotation_matrix(foot['orientation'])
+            corners = [
+                R @ np.array([half_l, half_w, 0]),
+                R @ np.array([half_l, -half_w, 0]),
+                R @ np.array([-half_l, half_w, 0]),
+                R @ np.array([-half_l, -half_w, 0]),
+            ]
+            points.extend([center + c[:2] for c in corners])
+        return np.array(points)
+
+    def point_in_polygon(self, point, polygon):
+        """Check if point is inside convex polygon using cross products."""
+        n = len(polygon)
+        inside = True
+        for i in range(n):
+            edge = polygon[(i + 1) % n] - polygon[i]
+            to_point = point - polygon[i]
+            cross = edge[0] * to_point[1] - edge[1] * to_point[0]
+            if cross < 0:
+                inside = False
+                break
+        return inside
+
+    def compute_balance_torques(self, com_pos, com_vel, com_accel,
+                                 foot_positions, stance_foot_idx):
+        """
+        Compute ankle and hip torques to regulate balance.
+
+        Returns:
+            ankle_torque: Torque to apply at the stance ankle
+            hip_torque: Torque to apply at the hip for balance
+        """
+        # Compute current ZMP
+        zmp = self.compute_zmp(com_pos, com_vel, com_accel)
+
+        # Compute support polygon
+        support_poly = self.compute_support_polygon(foot_positions)
+
+        # Compute capture point
+        cp = self.compute_capture_point(com_pos, com_vel)
+
+        # Desired ZMP (center of support polygon)
+        zmp_desired = np.mean(support_poly, axis=0)
+
+        # ZMP error
+        zmp_error = zmp - zmp_desired
+        zmp_error_dot = -self.kp_zmp * zmp_error  # simplified derivative
+
+        # Ankle torque (sagittal plane)
+        ankle_torque = (
+            self.kp_zmp * zmp_error[1] +
+            self.kd_zmp * zmp_error_dot[1]
+        )
+
+        # Hip torque (lateral balance, from capture point regulation)
+        cp_desired = zmp_desired  # want CP near center of support
+        cp_error = cp - cp_desired
+        hip_torque = (
+            self.kp_capture * cp_error[1] +
+            self.kd_capture * (-com_vel[1])
+        )
+
+        # Clamp to limits
+        ankle_torque = np.clip(ankle_torque,
+                                -self.max_ankle_torque,
+                                self.max_ankle_torque)
+        hip_torque = np.clip(hip_torque,
+                              -self.max_hip_torque,
+                              self.max_hip_torque)
+
+        return ankle_torque, hip_torque
+
+    def step(self, dt, com_pos, com_vel, com_accel,
+             foot_positions, stance_foot_idx):
+        """
+        Single control step. Call at 500 Hz.
+
+        Returns:
+            torque_commands: dict of joint torques
+        """
+        ankle_torque, hip_torque = self.compute_balance_torques(
+            com_pos, com_vel, com_accel,
+            foot_positions, stance_foot_idx
+        )
+
+        torque_commands = {
+            'left_ankle': ankle_torque if stance_foot_idx == 0 else 0.0,
+            'right_ankle': ankle_torque if stance_foot_idx == 1 else 0.0,
+            'left_hip_roll': hip_torque if stance_foot_idx == 0 else 0.0,
+            'right_hip_roll': hip_torque if stance_foot_idx == 1 else 0.0,
+        }
+
+        return torque_commands
+```
+
+### Grasp planning with inverse kinematics
+
+The following example demonstrates a grasp planning pipeline that uses IK to compute joint configurations for reaching and grasping an object with a humanoid arm.
+
+```python
+import numpy as np
+from scipy.optimize import minimize
+
+class GraspPlanner:
+    """
+    Grasp planner for a 7-DOF humanoid arm.
+    Computes IK solutions for pre-grasp, grasp, and lift poses.
+    """
+
+    def __init__(self, dh_params):
+        """
+        Args:
+            dh_params: List of (a, alpha, d, theta_offset) for each joint
+        """
+        self.dh = dh_params
+        self.n_joints = len(dh_params)
+
+        # Grasp parameters
+        self.approach_distance = 0.15  # meters above object
+        self.grip_force = 10.0  # Newtons
+        self.lift_height = 0.05  # meters
+
+    def forward_kinematics(self, q):
+        """Compute end-effector pose from joint angles."""
+        T = np.eye(4)
+        for i in range(self.n_joints):
+            a, alpha, d, theta_off = self.dh[i]
+            theta = q[i] + theta_off
+
+            Ti = np.array([
+                [np.cos(theta), -np.sin(theta)*np.cos(alpha),
+                 np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
+                [np.sin(theta), np.cos(theta)*np.cos(alpha),
+                 -np.cos(theta)*np.sin(alpha), a*np.sin(theta)],
+                [0, np.sin(alpha), np.cos(alpha), d],
+                [0, 0, 0, 1]
+            ])
+            T = T @ Ti
+
+        position = T[:3, 3]
+        rotation = T[:3, :3]
+        return position, rotation
+
+    def jacobian(self, q, delta=1e-6):
+        """Numerical Jacobian for position control."""
+        J = np.zeros((3, self.n_joints))
+        pos0, _ = self.forward_kinematics(q)
+
+        for i in range(self.n_joints):
+            q_plus = q.copy()
+            q_plus[i] += delta
+            pos_plus, _ = self.forward_kinematics(q_plus)
+            J[:, i] = (pos_plus - pos0) / delta
+
+        return J
+
+    def solve_ik(self, target_pos, q_init=None, max_iter=100, tol=1e-4):
+        """
+        Solve IK using damped least-squares.
+
+        Args:
+            target_pos: Desired end-effector position (3,)
+            q_init: Initial joint configuration
+            max_iter: Maximum iterations
+            tol: Position error tolerance
+
+        Returns:
+            q_solution: Joint angles achieving target position
+            success: Whether IK converged
+        """
+        if q_init is None:
+            q_init = np.zeros(self.n_joints)
+
+        q = q_init.copy()
+
+        for iteration in range(max_iter):
+            pos, _ = self.forward_kinematics(q)
+            error = target_pos - pos
+
+            if np.linalg.norm(error) < tol:
+                return q, True
+
+            J = self.jacobian(q)
+            # Damped least-squares
+            lambda_d = 0.1
+            dq = J.T @ np.linalg.solve(
+                J @ J.T + lambda_d**2 * np.eye(3), error
+            )
+
+            # Joint limit clamping
+            q = np.clip(q + dq, -np.pi, np.pi)
+
+        return q, False
+
+    def plan_grasp(self, object_pos, object_orientation, hand_width):
+        """
+        Plan a complete grasp sequence.
+
+        Args:
+            object_pos: Object center position (3,)
+            object_orientation: Object orientation as rotation matrix (3,3)
+            hand_width: Width of the object for grip aperture
+
+        Returns:
+            Waypoints: List of (position, grip_width, phase) tuples
+        """
+        waypoints = []
+
+        # Phase 1: Pre-grasp (above and behind the object)
+        approach_dir = object_orientation[:, 2]  # approach along z-axis
+        pre_grasp_pos = object_pos + self.approach_distance * approach_dir
+        pre_grasp_pos[2] += 0.05  # slight lift for clearance
+        waypoints.append((pre_grasp_pos, hand_width * 1.2, 'approach'))
+
+        # Phase 2: Approach (move down to grasp height)
+        grasp_pos = object_pos.copy()
+        waypoints.append((grasp_pos, hand_width * 1.1, 'approach'))
+
+        # Phase 3: Grasp (close fingers)
+        waypoints.append((grasp_pos, hand_width * 0.9, 'grasp'))
+
+        # Phase 4: Lift
+        lift_pos = grasp_pos.copy()
+        lift_pos[2] += self.lift_height
+        waypoints.append((lift_pos, hand_width * 0.9, 'lift'))
+
+        return waypoints
+
+    def compute_grasp_quality(self, contact_points, contact_normals,
+                               friction_coeff=0.5):
+        """
+        Compute epsilon quality measure for a grasp.
+
+        Args:
+            contact_points: List of contact positions (3, n_contacts)
+            contact_normals: List of contact normals (3, n_contacts)
+            friction_coeff: Coulomb friction coefficient
+
+        Returns:
+            quality: Scalar grasp quality (higher is better)
+        """
+        n_contacts = contact_points.shape[1]
+
+        # Build grasp matrix (maps contact wrenches to object wrench)
+        G = np.zeros((6, 6 * n_contacts))
+
+        for i in range(n_contacts):
+            r = contact_points[:, i]
+            n = contact_normals[:, i]
+
+            # Contact Jacobian (force component)
+            G[:3, 6*i:6*i+3] = np.eye(3)
+            # Contact Jacobian (moment component)
+            G[3:, 6*i:6*i+3] = skew_symmetric(r)
+            # Friction cone constraint (simplified)
+            G[3:, 6*i+3:6*i+6] = np.eye(3) * friction_coeff
+
+        # Compute singular values
+        _, s, _ = np.linalg.svd(G)
+
+        # Epsilon quality: minimum singular value
+        quality = s[-1]
+
+        return quality
+
+
+def skew_symmetric(v):
+    """Compute skew-symmetric matrix from 3-vector."""
+    return np.array([
+        [0, -v[2], v[1]],
+        [v[2], 0, -v[0]],
+        [-v[1], v[0], 0]
+    ])
+```
+
+## Lab budget planning guide
+
+### Tier 1: Simulation only ($0-$500)
+
+This tier requires no physical hardware. All learning happens in simulation.
+
+| Item | Cost | Purpose |
+|---|---|---|
+| Cloud GPU access (Google Colab, AWS) | $0-$200/mo | Heavy simulation (Isaac Sim, MuJoCo) |
+| Existing laptop/desktop | $0 | Development environment |
+| ROS 2 Humble (free) | $0 | Robot middleware |
+| Isaac Sim (free tier) | $0 | GPU-accelerated simulation |
+| MuJoCo (free) | $0 | Physics simulation |
+
+**What this tier teaches**: ROS 2 basics, URDF modeling, kinematics simulation, basic control algorithms, perception pipeline development.
+
+**Limitations**: No real hardware friction, no sensor noise, no battery constraints, no safety considerations.
+
+### Tier 2: Edge perception and proxy ($1,500-$5,000)
+
+Adds physical edge computing and a simple robot platform.
+
+| Item | Cost | Purpose |
+|---|---|---|
+| NVIDIA Jetson Orin Nano | $250 | Edge AI compute |
+| Intel RealSense D435i | $250 | Depth camera |
+| Bosch BNO085 IMU | $30 | Orientation and acceleration |
+| Unitree Go2 (base) | $1,600 | Quadruped locomotion platform |
+| External GPU (optional) | $500-$1,000 | Training acceleration |
+| USB cables, mounting hardware | $50 | Integration |
+
+**What this tier teaches**: Edge deployment, sensor fusion, SLAM, quadruped locomotion, ROS 2 on real hardware, safety protocols.
+
+**Limitations**: No manipulation, no humanoid kinematics, no bipedal balance.
+
+### Tier 3: Humanoid transfer ($10,000-$40,000)
+
+Full humanoid platform with supporting infrastructure.
+
+| Item | Cost | Purpose |
+|---|---|---|
+| NVIDIA Jetson AGX Orin | $2,000 | High-performance edge compute |
+| Intel RealSense D455 | $350 | Long-range depth |
+| Unitree G1 (base) | $16,000 | Humanoid platform |
+| RTX 4070+ workstation | $2,000 | Simulation and training |
+| Force/torque sensors (x2) | $1,000 | Manipulation feedback |
+| Safety net / tether | $200 | Fall protection |
+| Spare actuators and cables | $500 | Maintenance |
+
+**What this tier teaches**: Bipedal locomotion, whole-body control, manipulation, IK on real hardware, human-robot interaction, deployment workflows.
+
+**Limitations**: High safety burden, limited battery life, requires trained operators.
+
+### Budget optimization tips
+
+1. **Start with simulation**: Invest 2-3 months in simulation before buying hardware. Most control algorithms can be validated in simulation.
+2. **Buy used or refurbished**: Unitree and Robotis platforms sometimes have refurbished units at 30-50% discount.
+3. **Share across labs**: A single humanoid platform can serve 3-4 student groups per semester with scheduled lab sessions.
+4. **Leverage open-source**: ROS 2, Isaac ROS, and MuJoCo are free. Many humanoid control algorithms are published with code.
+5. **Phase hardware acquisition**: Start with Tier 1, add Tier 2 components as enrollment grows, and invest in Tier 3 only when research output justifies it.
 
 ## Robot lab options
 
-| Option | Best for | Tradeoff |
-|---|---|---|
-| Simulation only | Early learning, safety, low cost | No real hardware friction |
-| Edge kit with sensors | Perception and deployment practice | No full body motion |
-| Proxy robot or arm | ROS 2, navigation, manipulation practice | Not truly humanoid |
-| Mini humanoid | Walking and kinematics demos | Limited compute and payload |
-| Premium humanoid | Real humanoid capstone research | High cost and safety burden |
+| Option | Best for | Tradeoff | Compute required | Safety level |
+|---|---|---|---|---|
+| Simulation only | Early learning, safety, low cost | No real hardware friction | Any CPU/GPU | None |
+| Edge kit with sensors | Perception and deployment practice | No full body motion | Jetson or similar | Low |
+| Proxy robot or arm | ROS 2, navigation, manipulation practice | Not truly humanoid | Jetson or NUC | Low-medium |
+| Mini humanoid | Walking and kinematics demos | Limited compute and payload | NUC or Jetson | Medium |
+| Premium humanoid | Real humanoid capstone research | High cost and safety burden | Jetson AGX + RTX | High |
 
 ## Mini case study: choosing a budget path
 
 If a class cannot access RTX workstations or full humanoids, it can still learn Physical AI through a staged lab:
 
-1. Use cloud or shared GPU access for heavy simulation.
-2. Use Jetson kits for edge inference and deployment constraints.
-3. Use RealSense cameras and IMUs for perception labs.
-4. Use a proxy robot or robotic arm for safe physical demonstrations.
-5. Keep the humanoid capstone in simulation until safety and budget allow real hardware.
-
-## Deep dive subtopics
-
-### Kinematics and dynamics
-
-Kinematics describes motion geometry: joint angles, link positions, reach, and pose. Dynamics includes mass, force, torque, acceleration, and balance. Humanoid robots need both because a pose that is geometrically possible may still be dynamically unstable.
-
-### Balance and locomotion
-
-Bipedal locomotion is difficult because the robot repeatedly moves through unstable states. It must place feet, manage center of mass, respond to ground contact, and recover from small disturbances.
-
-### Manipulation with humanoid hands
-
-Manipulation requires perception, reach planning, contact control, grip force, and object understanding. A humanoid hand may look human-like, but grasping is still constrained by actuator strength, tactile feedback, and object geometry.
-
-### Human-robot interaction
-
-Natural interaction includes speech, gaze, gesture, distance, and timing. A robot should communicate uncertainty and intent clearly so people can predict what it will do next.
-
-### Lab strategy by budget
-
-| Budget level | Recommended focus | Example setup |
-|---|---|---|
-| Low | Simulation plus edge perception | Cloud/RTX access, Jetson kit, RealSense |
-| Medium | Proxy physical behavior | Jetson, RealSense, Unitree Go2 or robotic arm |
-| High | Humanoid transfer | RTX lab, Jetson, Unitree G1 or similar platform |
+1. Use cloud or shared GPU access for heavy simulation. Google Colab Pro ($50/mo) provides access to NVIDIA T4 GPUs for Isaac Sim and PyTorch training.
+2. Use Jetson kits for edge inference and deployment constraints. A Jetson Orin Nano ($250) runs ROS 2 and can process RealSense depth data at 30 FPS.
+3. Use RealSense cameras and IMUs for perception labs. A D435i ($250) provides synchronized color, depth, and IMU data for visual-inertial odometry.
+4. Use a proxy robot or robotic arm for safe physical demonstrations. A Unitree Go2 ($1,600) demonstrates locomotion principles without humanoid balance complexity.
+5. Keep the humanoid capstone in simulation until safety and budget allow real hardware. A virtual Unitree G1 in Isaac Sim can run the full control stack.
 
 ## Practical lab
 
 <div className="lab-box">
 <h3>Lab: design the robotics lab</h3>
 <p>Create a lab purchase plan with three tiers: minimum, recommended, and premium. Include workstation, edge kit, sensors, and robot platform. Explain what each tier can teach.</p>
+
+**Deliverables**:
+
+1. A spreadsheet with itemized costs for each tier
+2. A 1-page justification for each tier explaining learning outcomes
+3. A risk assessment for the premium tier (safety protocols, required training)
+4. A semester schedule showing when each tier would be used in the curriculum
+
+**Evaluation criteria**:
+
+- Cost accuracy (verify prices against current listings)
+- Learning outcome alignment (map each item to specific course objectives)
+- Safety completeness (identify all hazards and mitigation strategies)
+- Feasibility (can the plan be executed within the department's budget cycle?)
 </div>
 
 ## Quiz
 
 ### Check your understanding
 
-1. Why are humanoids harder than wheeled robots?
-1. What can a proxy robot teach even if it is not humanoid?
-1. Why is a Jetson useful in a Physical AI course?
-1. What is the main risk of cheap humanoid kits for AI robotics?
+1. Why are humanoids harder to control than wheeled robots?
+2. What is the zero moment point, and why does it matter for balance?
+3. How does the capture point differ from the ZMP?
+4. What is the primary advantage of impedance control over position control for manipulation?
+5. What are the four proxemics zones, and which zone applies to a robot handing a cup to a person?
+6. Name two reasons why a full humanoid costs more than a quadruped with the same compute.
+7. Why does bipedal stair climbing require higher joint torques than flat-ground walking?
+8. What is the damped least-squares method, and why is it used in IK?
+9. How does the linear inverted pendulum model simplify bipedal gait planning?
+10. In a staged lab strategy, why should you add only one new risk surface at a time?
 
 ### Answer key
 
-1. They must manage balance, many joints, manipulation, and interaction in human spaces.
-1. ROS 2 control, navigation, perception, deployment, and safety patterns.
-1. It teaches edge compute limits and local deployment for embodied AI.
-1. They may not support the compute or software stack needed for Isaac ROS or advanced AI workloads.
+1. They must manage dynamic balance on a small support polygon, coordinate 20+ coupled joints, handle hybrid contact transitions, and perform manipulation simultaneously. Wheeled robots have a stable base and far fewer DOF.
+2. The ZMP is the point on the ground where the total moment of ground reaction forces about the horizontal axes is zero. If the ZMP lies within the support polygon, the robot is statically stable. If it lies outside, the robot will tip.
+3. The ZMP indicates current stability; the capture point indicates where the robot must place its next footstep to stop. The capture point extends ZMP analysis to dynamic, multi-step walking.
+4. Impedance control regulates the relationship between position error and interaction force, allowing compliant contact with objects. Position control blindly tries to reach a target regardless of contact forces, which can damage the object or robot.
+5. Intimate (0-0.45 m), personal (0.45-1.2 m), social (1.2-3.6 m), public (>3.6 m). Handing a cup occurs in the personal zone.
+6. Humanoids require bipedal legs with 6 DOF each (for balance and terrain adaptation), a heavier torso for upright posture, and more complex whole-body controllers. Quadrupeds have a naturally stable four-point base.
+7. The CoM must rise by the riser height each step, requiring sustained hip and knee extension against gravity. Additionally, the swing leg must lift high enough to clear the riser, adding to the torque demand.
+8. It computes IK solutions as $\Delta \mathbf\{q\} = J^T (J J^T + \lambda^2 I)^\{-1\} \Delta \mathbf\{x\}$, which avoids ill-conditioning near singularities by adding a damping term $\lambda^2 I$ to the matrix being inverted.
+9. The LIPM assumes constant CoM height and decouples horizontal dynamics into two independent linear equations, enabling preview control and MPC for efficient gait generation.
+10. Each new subsystem (sensors, actuators, communication, autonomy) introduces potential failure modes. Adding one at a time allows isolation and debugging without overwhelming the team with simultaneous unknowns.
+
+## Glossary
+
+| Term | Definition |
+|---|---|
+| **Bipedal locomotion** | Walking on two legs, requiring continuous dynamic balance management |
+| **Capture point (CP)** | The point on the ground where a footstep would bring the robot to a complete stop |
+| **Center of mass (CoM)** | The mass-weighted average position of all links in a robot |
+| **Denavit-Hartenberg (DH) parameters** | Four parameters (a, alpha, d, theta) that describe the geometry of each joint-link pair |
+| **Degrees of freedom (DOF)** | The number of independent variables needed to fully describe a robot's configuration |
+| **Dynamixel servo** | A line of smart actuators commonly used in educational and research robots |
+| **Epsilon quality** | A grasp quality metric based on the minimum singular value of the grasp matrix |
+| **Forward kinematics (FK)** | Computing end-effector position and orientation from joint angles |
+| **Gait cycle** | One complete sequence of stance and swing phases for all legs |
+| **Grasp wrench space (GWS)** | The set of all wrenches a grasp can resist |
+| **Homogeneous transformation** | A 4x4 matrix representing rotation and translation in a single operation |
+| **Impedance control** | A control strategy that regulates the dynamic relationship between position error and interaction force |
+| **Inverse kinematics (IK)** | Computing joint angles to achieve a desired end-effector pose |
+| **Jacobian** | A matrix relating joint velocities to end-effector velocities |
+| **Legibility** | The degree to which a robot's motion can be read and understood by a human observer |
+| **Linear inverted pendulum model (LIPM)** | A simplified dynamic model assuming constant CoM height for bipedal walking analysis |
+| **Model predictive control (MPC)** | An optimization-based control method that predicts future states and optimizes actions over a finite horizon |
+| **Operational-space control** | Controlling end-effector forces and torques directly, rather than individual joint torques |
+| **Proxemics** | The study of human use of space and the effects of personal distance on interaction |
+| **Quadratic program (QP)** | An optimization problem with a quadratic objective and linear constraints, used in whole-body control |
+| **SLAM** | Simultaneous Localization and Mapping: building a map while localizing the robot within it |
+| **Spring-mass model** | A simplified running model treating the leg as a spring and the body as a point mass |
+| **Support polygon** | The convex hull of all ground contact points; the CoM projection must stay within for static stability |
+| **URDF** | Unified Robot Description Format: an XML standard for describing robot kinematics, dynamics, and visual appearance |
+| **Whole-body control** | Coordinating all joints simultaneously to achieve desired end-effector forces while maintaining balance |
+| **Zero moment point (ZMP)** | The point on the ground where the total moment of ground reaction forces about horizontal axes is zero |
 
 ## Safety and hardware notes
 
 <div className="safety-box">
-<h3>Hardware escalation</h3>
+<h3>Hardware escalation protocol</h3>
 <p>Move from simulation to edge kits to proxy robots before attempting full humanoid motion. Each step should add only one new risk surface at a time.</p>
+
+**Required safety measures by tier**:
+
+- **Tier 1 (Simulation)**: Standard computer safety. No special training required.
+- **Tier 2 (Edge + Proxy)**: E-stop button, tether for quadrupeds, supervised operation, no loose clothing near actuators.
+- **Tier 3 (Humanoid)**: Hard hat zone, safety net or overhead tether, two-person operation (spotter + operator), emergency stop within reach, battery disconnect protocol, pre-flight checklist before each session, incident reporting form.
+
+**Maintenance schedule**:
+
+- Inspect actuator cables and connectors before each lab session
+- Check battery health monthly (voltage, capacity, internal resistance)
+- Update firmware and ROS 2 packages quarterly
+- Replace worn foot pads and rubber components as needed
+- Document all hardware incidents in a shared log
 </div>
 
+## Further reading
 
+- Kajita, S., et al. *Introduction to Humanoid Robotics*. Springer, 2015.
+- Siciliano, B., and Khatib, O. *Springer Handbook of Robotics*. Springer, 2016.
+- Walking pattern generation: Kajita, S., et al. "Biped walking pattern generation by using preview control of zero-moment point." ICRA 2003.
+- Capture point: Pratt, J., et al. "Capture point: A step toward humanoid push recovery." Humanoids 2006.
+- Impedance control: Hogan, N. "Impedance control: An approach to manipulation." ASME J. Dynamic Systems, 1985.
+- Proxemics: Hall, E.T. *The Hidden Dimension*. Doubleday, 1966.
+- Unitree documentation: https://www.unitree.com
+- ROS 2 Humble docs: https://docs.ros.org/en/humble/
