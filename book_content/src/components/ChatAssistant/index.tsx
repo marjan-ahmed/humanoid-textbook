@@ -23,9 +23,13 @@ function resolveApiUrl(configuredApiUrl?: string) {
   return `${origin}/chatkit`;
 }
 
-function resolveDomainKey() {
+function resolveDomainKey(configuredDomainKey?: string) {
   if (typeof window === 'undefined') {
     return 'local-dev';
+  }
+
+  if (configuredDomainKey && configuredDomainKey.trim()) {
+    return configuredDomainKey.trim();
   }
 
   const {hostname} = window.location;
@@ -35,18 +39,20 @@ function resolveDomainKey() {
 function ChatAssistantPanel({
   initialThread,
   configuredApiUrl,
+  configuredDomainKey,
   instanceKey,
   onError,
 }: {
   initialThread: string | null;
   configuredApiUrl?: string;
+  configuredDomainKey?: string;
   instanceKey: number;
   onError: (message: string) => void;
 }) {
   const {control} = useChatKit({
     api: {
       url: resolveApiUrl(configuredApiUrl),
-      domainKey: resolveDomainKey(),
+      domainKey: resolveDomainKey(configuredDomainKey),
     },
     initialThread,
     theme: {
@@ -95,6 +101,7 @@ function ChatAssistantPanel({
 export default function ChatAssistant() {
   const {siteConfig} = useDocusaurusContext();
   const configuredApiUrl = String(siteConfig.customFields?.chatkitApiUrl ?? '');
+  const configuredDomainKey = String(siteConfig.customFields?.chatkitDomainKey ?? '');
   const [isOpen, setIsOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [initialThread, setInitialThread] = useState<string | null>(null);
@@ -198,6 +205,7 @@ export default function ChatAssistant() {
                 <ChatAssistantPanel
                   initialThread={initialThread}
                   configuredApiUrl={configuredApiUrl}
+                  configuredDomainKey={configuredDomainKey}
                   instanceKey={instanceKey}
                   onError={(message) => {
                     setErrorMessage(message || 'ChatKit failed to initialize.');
