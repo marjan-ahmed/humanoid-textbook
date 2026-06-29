@@ -1,4 +1,5 @@
 import {ChatKit, useChatKit} from '@openai/chatkit-react';
+import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import {useEffect, useState} from 'react';
 
 import styles from './styles.module.css';
@@ -6,12 +7,15 @@ import styles from './styles.module.css';
 const THREAD_STORAGE_KEY = 'physical-ai-chatkit-thread';
 const PANEL_STORAGE_KEY = 'physical-ai-chatkit-open';
 
-function resolveApiUrl() {
+function resolveApiUrl(configuredApiUrl?: string) {
   if (typeof window === 'undefined') {
     return 'http://localhost:8000/chatkit';
   }
 
   const {hostname, origin} = window.location;
+  if (configuredApiUrl && configuredApiUrl.trim()) {
+    return configuredApiUrl.trim();
+  }
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8000/chatkit';
   }
@@ -30,16 +34,18 @@ function resolveDomainKey() {
 
 function ChatAssistantPanel({
   initialThread,
+  configuredApiUrl,
   instanceKey,
   onError,
 }: {
   initialThread: string | null;
+  configuredApiUrl?: string;
   instanceKey: number;
   onError: (message: string) => void;
 }) {
   const {control} = useChatKit({
     api: {
-      url: resolveApiUrl(),
+      url: resolveApiUrl(configuredApiUrl),
       domainKey: resolveDomainKey(),
     },
     initialThread,
@@ -87,6 +93,8 @@ function ChatAssistantPanel({
 }
 
 export default function ChatAssistant() {
+  const {siteConfig} = useDocusaurusContext();
+  const configuredApiUrl = String(siteConfig.customFields?.chatkitApiUrl ?? '');
   const [isOpen, setIsOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [initialThread, setInitialThread] = useState<string | null>(null);
@@ -189,6 +197,7 @@ export default function ChatAssistant() {
               {scriptReady ? (
                 <ChatAssistantPanel
                   initialThread={initialThread}
+                  configuredApiUrl={configuredApiUrl}
                   instanceKey={instanceKey}
                   onError={(message) => {
                     setErrorMessage(message || 'ChatKit failed to initialize.');
