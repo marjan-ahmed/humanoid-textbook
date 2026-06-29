@@ -2,7 +2,7 @@
 name = "rag-backend"
 version = "0.1.0"
 description = "RAG backend for the Physical AI textbook"
-requires-python = ">=3.11"
+requires-python = "==3.12.*"
 dependencies = [
   "fastapi[standard]",
   "openai-agents",
