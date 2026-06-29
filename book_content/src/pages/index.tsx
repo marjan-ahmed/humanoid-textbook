@@ -236,8 +236,8 @@ export default function Home(): ReactNode {
             },
           })}
         </script>
-        <meta property="og:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.png" />
-        <meta name="twitter:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.png" />
+        <meta property="og:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.svg" />
+        <meta name="twitter:image" content="https://marjan-ahmed.github.io/humanoid-textbook/img/og-image.svg" />
         <link rel="canonical" href="https://marjan-ahmed.github.io/humanoid-textbook/" />
       </Head>
       <main className={styles.pageShell}>
