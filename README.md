@@ -20,6 +20,19 @@ The project is built as a simulation-first robotics course: MDX textbook chapter
 - Pre-made Urdu and Roman Urdu translations for all textbook chapters.
 - GitHub Pages, Railway, and Vercel deployment configuration.
 
+## Tech Stack
+
+| Layer | Technologies |
+| --- | --- |
+| Textbook frontend | Docusaurus 3.10, React 19, TypeScript 6, MDX, CSS Modules, Prism React Renderer |
+| Authentication app | Better Auth, Express 4, TypeScript ESM, PostgreSQL `pg`, CORS, dotenv |
+| Personalization data | Neon Postgres tables for progress, bookmarks, notes, preferences, and Better Auth records |
+| AI assistant UI | OpenAI ChatKit React package and hosted ChatKit web component |
+| RAG backend | FastAPI, Python 3.12, uv, OpenAI Agents SDK, OpenAI ChatKit server, OpenAI-compatible chat completions |
+| Retrieval pipeline | Qdrant vector database, Cohere Embed v3, MDX section ingestion from `book_content/docs/` |
+| Auth verification | Better Auth JWT plugin, JWKS verification, PyJWT, httpx, cryptography |
+| Deployment | GitHub Pages, GitHub Actions, Railway, Vercel |
+| Runtime configuration | Environment variables, `.env.example` files, Docusaurus custom fields |
 ## Architecture
 
 ```text
