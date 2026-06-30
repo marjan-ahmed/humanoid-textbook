@@ -7,7 +7,7 @@ import styles from './styles.module.css';
 const THREAD_STORAGE_KEY = 'physical-ai-chatkit-thread';
 const PANEL_STORAGE_KEY = 'physical-ai-chatkit-open';
 const MAX_SELECTED_TEXT_LENGTH = 1200;
-const DEFAULT_SELECTION_PROMPT = 'Explain this selected text using the textbook only and cite the most relevant sections.';
+const DEFAULT_SELECTION_PROMPT = 'Based on the selected textbook passage below, provide a detailed explanation: (1) Define the core concept in your own words. (2) Explain why this distinction matters in physical AI and robotics. (3) Give a concrete example from the textbook. (4) Cite specific chapter and section names. Only use information from this textbook.';
 
 type SelectedScope = {
   text: string;
@@ -282,9 +282,10 @@ export default function ChatAssistant() {
 
     setErrorMessage(null);
     setIsOpen(true);
+    const prompt = `${DEFAULT_SELECTION_PROMPT}\n\nSelected passage:\n"${selectedScope.text}"`;
     setPendingSelectionRequest({
       id: Date.now(),
-      prompt: DEFAULT_SELECTION_PROMPT,
+      prompt,
     });
   };
 
