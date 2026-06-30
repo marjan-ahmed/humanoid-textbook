@@ -32,9 +32,9 @@
 }
 
 .blueprint {
+  align-self: center;
   background: #0c1218;
   border-right: 1px solid var(--premium-line);
-  min-height: 650px;
   overflow: hidden;
   padding: clamp(1rem, 3vw, 2rem);
   position: relative;
