@@ -70,7 +70,7 @@
   overflow: hidden;
   position: fixed;
   right: 1.5rem;
-  width: min(27rem, calc(100vw - 1.5rem));
+  width: min(34rem, calc(100vw - 1.5rem));
 }
 
 .panelHeader {
@@ -115,6 +115,24 @@
 }
 
 .panelActions button:hover {
+  background: rgba(247, 241, 231, 0.12);
+}
+
+.closeIcon {
+  align-items: center;
+  background: rgba(247, 241, 231, 0.06);
+  border: 1px solid rgba(247, 241, 231, 0.14);
+  border-radius: 999px;
+  color: #f7f1e7;
+  cursor: pointer;
+  display: inline-flex;
+  height: 2rem;
+  justify-content: center;
+  padding: 0;
+  width: 2rem;
+}
+
+.closeIcon:hover {
   background: rgba(247, 241, 231, 0.12);
 }
 
@@ -180,7 +198,7 @@
     bottom: 1rem;
     max-height: calc(100vh - 2rem);
     right: 1rem;
-    width: min(27rem, calc(100vw - 1rem));
+    width: min(34rem, calc(100vw - 1rem));
   }
 
   .trigger {
