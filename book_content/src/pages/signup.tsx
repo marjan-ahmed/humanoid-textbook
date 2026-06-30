@@ -3,7 +3,11 @@ import Layout from '@theme/Layout';
 import BrowserOnly from '@docusaurus/BrowserOnly';
 import styles from './auth.module.css';
 
-const AUTH_SERVER = 'http://localhost:3001';
+function getAuthServer(): string {
+  if (typeof window === "undefined") return "http://localhost:3001";
+  if (window.location.hostname === "localhost") return "http://localhost:3001";
+  return "https://humanoid-textbook.up.railway.app";
+}
 
 function SignupForm() {
   const [name, setName] = useState('');
@@ -20,7 +24,7 @@ function SignupForm() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${AUTH_SERVER}/api/auth/sign-up/email`, {
+      const res = await fetch(`${getAuthServer()}/api/auth/sign-up/email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
