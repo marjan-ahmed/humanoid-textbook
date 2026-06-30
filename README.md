@@ -1,57 +1,46 @@
+<p align="center">
+  <img src="book_content/static/img/logo.svg" alt="Physical AI Textbook logo" width="96" />
+</p>
+
 # Humanoid Textbook
 
-Physical AI and Humanoid Robotics textbook project built around a Docusaurus frontend and a FastAPI RAG backend.
+Physical AI and Humanoid Robotics textbook with a Docusaurus learning site, Better Auth personalization, and a retrieval-grounded ChatKit assistant.
 
-## Project Status
+The project is built as a simulation-first robotics course: MDX textbook chapters cover embodied AI foundations, ROS 2, digital twins, NVIDIA Isaac, Vision-Language-Action systems, humanoid development, and an autonomous humanoid capstone.
 
-- Frontend: `book_content/` Docusaurus site with textbook content and ChatKit UI.
-- Backend: `backend/` FastAPI service with Qdrant retrieval, Cohere embeddings, and Gemini/OpenAI-compatible chat responses.
-- Active integration branch: `003-chatkit-integration`.
-- Live backend: `https://humanoid-textbook-roan.vercel.app`
-- Current backend health endpoint: `https://humanoid-textbook-roan.vercel.app/health`
+[Open the textbook](https://marjan-ahmed.github.io/humanoid-textbook/) | [Auth server](https://humanoid-textbook.up.railway.app) | [ChatKit backend](https://humanoid-textbook-zeta.vercel.app)
 
-## Repository Layout
+## Features
 
-- `book_content/`: Docusaurus textbook site and frontend chat integration.
-- `backend/`: FastAPI backend, `pyproject.toml`, `uv.lock`, and deployment configs.
-- `specs/`: Specify feature specs, plans, tasks, and contracts.
-- `.specify/`: constitution, templates, and workflow helpers.
-- `history/`: prompt history and architecture records.
-- `hackathon_requirements/`: source hackathon brief and extracted material.
+- Docusaurus 3 textbook site with React 19 and TypeScript.
+- OpenAI ChatKit assistant grounded in the textbook corpus.
+- FastAPI RAG backend with Qdrant retrieval and Cohere embeddings.
+- Better Auth sign-in/sign-up with Neon Postgres persistence.
+- Reading progress, bookmarks, personal notes, and preferences.
+- Pre-made Urdu and Roman Urdu translations for all textbook chapters.
+- GitHub Pages, Railway, and Vercel deployment configuration.
 
-## Frontend and Backend
+## Architecture
 
-The frontend chat widget lives in `book_content/src/components/ChatAssistant/`.
-The backend ChatKit endpoint is `/chatkit`.
+```text
+book_content/   Docusaurus site, MDX chapters, React UI, ChatKit widget
+auth-server/    Better Auth Express API, Neon-backed user data, translations
+backend/        FastAPI ChatKit/RAG service, Qdrant ingestion, health checks
+specs/          Product specs, implementation plans, tasks, and contracts
+history/        Prompt and planning history
+```
 
-For separate live deployments, configure the frontend with:
+The frontend calls:
 
-- `DOCUSAURUS_CHATKIT_API_URL=https://humanoid-textbook-roan.vercel.app/chatkit`
+- `auth-server` for authentication and personalization APIs.
+- `backend` for `/chatkit`, `/api/chat`, `/api/ingest`, and health checks.
 
-The backend currently allows cross-origin requests, so the frontend can call the backend from a different domain.
+> [!NOTE]
+> The auth token is stored in `localStorage` and sent as a Bearer token. Personalization data itself is stored in Neon, not in browser storage.
 
-## Backend Runtime
+## Quick Start
 
-Backend stack:
-
-- FastAPI
-- `uv` for dependency management
-- Qdrant for vector retrieval
-- Cohere for embeddings
-- Gemini via OpenAI-compatible base URL for responses
-- OpenAI ChatKit for the embedded chat UI protocol
-
-Key backend endpoints:
-
-- `/health`
-- `/api/health`
-- `/api/chat`
-- `/chatkit`
-- `/api/ingest`
-
-## Local Development
-
-Frontend:
+### Frontend
 
 ```bash
 cd book_content
@@ -59,30 +48,116 @@ npm install
 npm run start
 ```
 
-Backend:
+The local Docusaurus server runs on `http://localhost:3000`.
+
+### Auth Server
+
+```bash
+cd auth-server
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Set `DATABASE_URL`, `BETTER_AUTH_SECRET`, and `BETTER_AUTH_URL` before using real auth flows.
+
+### RAG Backend
 
 ```bash
 cd backend
 uv sync
+cp .env.example .env
 uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-## Required Backend Environment Variables
+Configure Cohere, Qdrant, and OpenAI-compatible chat model credentials before starting the backend.
+
+## Common Commands
+
+| Area | Command | Purpose |
+| --- | --- | --- |
+| Frontend | `cd book_content && npm run start` | Start Docusaurus locally |
+| Frontend | `cd book_content && npm run build` | Build the production site |
+| Frontend | `cd book_content && npm run typecheck` | Run TypeScript checks |
+| Auth | `cd auth-server && npm run dev` | Start Express with `tsx watch` |
+| Auth | `cd auth-server && npm run build` | Compile the TypeScript server |
+| Auth | `cd auth-server && npm run migrate` | Run Better Auth migration hook |
+| Backend | `cd backend && uv run uvicorn main:app --host 0.0.0.0 --port 8000` | Start FastAPI locally |
+| Backend | `cd backend && uv run python ingest.py` | Ingest MDX content into Qdrant |
+
+## Environment
+
+### Frontend
+
+- `DOCUSAURUS_SITE_URL`
+- `DOCUSAURUS_BASE_URL`
+- `DOCUSAURUS_CHATKIT_API_URL`
+- `DOCUSAURUS_CHATKIT_DOMAIN_KEY`
+
+### Auth Server
+
+- `DATABASE_URL`
+- `BETTER_AUTH_SECRET`
+- `BETTER_AUTH_URL`
+- `PORT`
+
+### RAG Backend
 
 - `COHERE_API_KEY`
+- `COHERE_EMBED_MODEL`
 - `QDRANT_URL`
 - `QDRANT_API_KEY`
+- `QDRANT_COLLECTION`
 - `GEMINI_API_KEY`
-- `BASE_URL`
 - `GEMINI_MODEL`
+- `BASE_URL`
+- `BETTER_AUTH_URL`
+- `BACKEND_PORT`
 
-Groq values:
+For Groq-backed chat completions, use:
 
-- `BASE_URL=https://api.groq.com/openai/v1`
-- `GEMINI_MODEL=llama-3.3-70b-versatile`
+```env
+BASE_URL=https://api.groq.com/openai/v1
+GEMINI_MODEL=llama-3.3-70b-versatile
+```
 
-## Deployment Notes
+## Deployment
 
-- Render / Railway root directory for the backend should be `backend`.
-- Vercel backend config exists in `backend/vercel.json` and `backend/pyproject.toml`.
-- The backend uses Groq for chat inference (free tier, no daily quota limits).
+- GitHub Pages builds `book_content/` from `main` via `.github/workflows/deploy.yml`.
+- Railway deploys the Better Auth server from `auth-server/`.
+- Vercel deploys the FastAPI backend from `backend/`.
+
+The Docusaurus config defaults to:
+
+```env
+DOCUSAURUS_SITE_URL=https://marjan-ahmed.github.io
+DOCUSAURUS_BASE_URL=/humanoid-textbook/
+DOCUSAURUS_CHATKIT_API_URL=https://humanoid-textbook-zeta.vercel.app/chatkit
+```
+
+## Content and Translations
+
+Textbook chapters live in `book_content/docs/` and are organized by `book_content/sidebars.ts`.
+
+Translations are committed in two places:
+
+- `book_content/translations/` for the Docusaurus project.
+- `auth-server/translations/` for Railway runtime access.
+
+When adding or updating translated chapters, keep both directories synchronized.
+
+## Health Checks
+
+After deploying or running services locally:
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:3001/health
+```
+
+Production URLs:
+
+```text
+https://humanoid-textbook-zeta.vercel.app/health
+https://humanoid-textbook.up.railway.app/health
+```
