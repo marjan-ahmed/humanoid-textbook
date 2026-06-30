@@ -20,7 +20,7 @@ function SigninForm() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${AUTH_SERVER}/api/auth/sign-in/email`, {
+      const res = await fetch(`${getAuthServer()}/api/auth/sign-in/email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
