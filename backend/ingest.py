@@ -81,12 +81,14 @@ def build_chunk_payload(path: Path, section_index: int, section_title: str, chun
     relative_path = path.relative_to(DOCS_DIR).with_suffix("")
     chapter = relative_path.as_posix()
     module = relative_path.parts[0] if len(relative_path.parts) > 1 else relative_path.stem
+    slug = f"/docs/{chapter}"
     return {
         "chapter": chapter,
         "section": section_title,
         "module": module,
         "section_index": str(section_index),
         "source_path": relative_path.with_suffix(".mdx").as_posix(),
+        "slug": slug,
         "content": chunk_text,
     }
 

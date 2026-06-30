@@ -71,8 +71,12 @@ REQUEST_CONTEXT: contextvars.ContextVar[str] = contextvars.ContextVar("request_c
 TEXTBOOK_AGENT_INSTRUCTIONS = (
     "You answer only from the Physical AI textbook. "
     "Always call the search_book tool before answering a user question. "
-    "Use the retrieved passages as your source of truth, cite chapter and section names in square brackets, "
-    "and if the textbook does not contain the answer, say so directly."
+    "Use the retrieved passages as your source of truth. "
+    "For citations, use markdown links with the section title as text and the slug as URL. "
+    "Example: [ROS 2 Control Layer](/docs/ros-2/robotic-nervous-system). "
+    "Never use plain text citations like [source: ...]. "
+    "Always use clickable markdown links. "
+    "If the textbook does not contain the answer, say so directly."
 )
 
 
@@ -140,9 +144,10 @@ def format_retrieval_context(results: list[qmodels.ScoredPoint]) -> str:
         chapter = payload.get("chapter", "unknown-chapter")
         section = payload.get("section", "unknown-section")
         module = payload.get("module", "unknown-module")
+        slug = payload.get("slug", f"/docs/{chapter}")
         content = payload.get("content", "")
         score = f"{point.score:.3f}" if point.score is not None else "n/a"
-        blocks.append(f"[{index}] {chapter} > {section} | module={module} | score={score}\n{content}")
+        blocks.append(f"[{index}] {chapter} > {section} | module={module} | slug={slug} | score={score}\n{content}")
     return "\n\n".join(blocks)
 
 
@@ -219,7 +224,12 @@ def classify_response_size(question: str) -> tuple[Literal["small", "medium"], s
 
 def build_runtime_instructions(question: str) -> str:
     _, size_guidance = classify_response_size(question)
-    return f"{TEXTBOOK_AGENT_INSTRUCTIONS} {size_guidance} Avoid unnecessary elaboration."
+    return (
+        f"{TEXTBOOK_AGENT_INSTRUCTIONS} {size_guidance} Avoid unnecessary elaboration. "
+        "Citation links use slugs from the retrieval context (e.g., slug=/docs/ros-2/robotic-nervous-system). "
+        "Format each citation as [Section Title](slug). "
+        "Group multiple citations at the end of the relevant paragraph."
+    )
 
 
 def build_thread_limit_message(thread: ThreadMetadata, context: dict[str, Any], store: Store[dict[str, Any]]) -> AssistantMessageItem:

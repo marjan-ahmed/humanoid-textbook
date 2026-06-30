@@ -191,7 +191,7 @@ export default function ChatAssistant() {
             </header>
             <div className={styles.panelMeta}>
               <span>Qdrant retrieval</span>
-              <span>Gemini responses</span>
+              <span>Groq responses</span>
               <span>Course citations</span>
             </div>
             {errorMessage && (
