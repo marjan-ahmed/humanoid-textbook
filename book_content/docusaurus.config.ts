@@ -10,7 +10,7 @@ const chatkitDomainKey = process.env.DOCUSAURUS_CHATKIT_DOMAIN_KEY ?? 'domain_pk
 const config: Config = {
   title: 'Physical AI & Humanoid Robotics Textbook',
   tagline: 'An AI-native textbook for building embodied intelligence from ROS 2 to autonomous humanoids.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
 
   future: {
     v4: true,
