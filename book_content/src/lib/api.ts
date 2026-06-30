@@ -1,4 +1,10 @@
-const AUTH_SERVER = "http://localhost:3001";
+function getAuthServer(): string {
+  if (typeof window === "undefined") return "http://localhost:3001";
+  if (window.location.hostname === "localhost") return "http://localhost:3001";
+  return "https://humanoid-textbook.up.railway.app";
+}
+
+const AUTH_SERVER = getAuthServer();
 
 function getToken(): string | null {
   try { return localStorage.getItem("better-auth.token"); } catch { return null; }

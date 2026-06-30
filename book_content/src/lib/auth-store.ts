@@ -12,7 +12,13 @@ export interface User {
 
 type Listener = () => void;
 
-const AUTH_SERVER = "http://localhost:3001";
+function getAuthServer(): string {
+  if (typeof window === "undefined") return "http://localhost:3001";
+  if (window.location.hostname === "localhost") return "http://localhost:3001";
+  return "https://humanoid-textbook.up.railway.app";
+}
+
+const AUTH_SERVER = getAuthServer();
 const TOKEN_KEY = "better-auth.token";
 
 let _user: User | null = null;

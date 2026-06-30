@@ -5,7 +5,13 @@ import { AuthenticatedRequest, requireAuth } from "./middleware.js";
 
 const router = Router();
 
-const TRANSLATIONS_DIR = join(process.cwd(), "..", "book_content", "translations");
+// Resolve translations: auth-server/translations/ (deployed) or ../book_content/translations/ (local)
+function getTranslationsDir(): string {
+  const bundled = join(process.cwd(), "translations");
+  if (existsSync(bundled)) return bundled;
+  return join(process.cwd(), "..", "book_content", "translations");
+}
+const TRANSLATIONS_DIR = getTranslationsDir();
 
 function slugToFileMap(slug: string): string {
   const parts = slug.split("/");

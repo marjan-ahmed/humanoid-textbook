@@ -25,6 +25,7 @@ app.use(cors({
     "http://localhost:3001",
     "http://localhost:3002",
     "https://marjan-ahmed.github.io",
+    "https://humanoid-textbook.up.railway.app",
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
