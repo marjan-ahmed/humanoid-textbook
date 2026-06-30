@@ -72,14 +72,14 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8000
 - `COHERE_API_KEY`
 - `QDRANT_URL`
 - `QDRANT_API_KEY`
-- `GROQ_API_KEY`
+- `GEMINI_API_KEY`
 - `BASE_URL`
-- `GROQ_MODEL`
+- `GEMINI_MODEL`
 
 Groq values:
 
 - `BASE_URL=https://api.groq.com/openai/v1`
-- `GROQ_MODEL=llama-3.3-70b-versatile`
+- `GEMINI_MODEL=llama-3.3-70b-versatile`
 
 ## Deployment Notes
 

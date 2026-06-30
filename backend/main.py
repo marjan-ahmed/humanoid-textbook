@@ -55,7 +55,7 @@ load_dotenv(BACKEND_DIR / ".env")
 
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "humanoid-textbook-content")
 EMBED_MODEL = os.getenv("COHERE_EMBED_MODEL", "embed-english-v3.0")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "llama-3.3-70b-versatile")
 BASE_URL = os.getenv("BASE_URL", "https://api.groq.com/openai/v1")
 THREAD_ASSISTANT_LIMIT = 12
 
@@ -95,20 +95,20 @@ def create_clients() -> tuple[ClientV2, QdrantClient, OpenAI, AsyncOpenAI, OpenA
     cohere_api_key = require_env("COHERE_API_KEY")
     qdrant_url = require_env("QDRANT_URL")
     qdrant_api_key = require_env("QDRANT_API_KEY")
-    groq_api_key = require_env("GROQ_API_KEY")
+    gemini_api_key = require_env("GEMINI_API_KEY")
     base_url = require_env("BASE_URL")
-    groq_model = require_env("GROQ_MODEL")
+    gemini_model = require_env("GEMINI_MODEL")
 
     cohere_client = ClientV2(api_key=cohere_api_key)
     qdrant_client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
-    model_client = OpenAI(api_key=groq_api_key, base_url=base_url)
-    model_async_client = AsyncOpenAI(api_key=groq_api_key, base_url=base_url)
+    model_client = OpenAI(api_key=gemini_api_key, base_url=base_url)
+    model_async_client = AsyncOpenAI(api_key=gemini_api_key, base_url=base_url)
 
     set_default_openai_client(model_async_client, use_for_tracing=False)
     set_default_openai_api("chat_completions")
     set_tracing_disabled(True)
 
-    chat_model = OpenAIChatCompletionsModel(model=groq_model, openai_client=model_async_client)
+    chat_model = OpenAIChatCompletionsModel(model=gemini_model, openai_client=model_async_client)
     return cohere_client, qdrant_client, model_client, model_async_client, chat_model
 
 
@@ -541,7 +541,7 @@ async def api_health() -> JSONResponse:
 
     if MODEL_CLIENT is None:
         status["gemini"] = False
-        status["gemini_error"] = "GROQ_API_KEY, GROQ_MODEL, and BASE_URL are required"
+        status["gemini_error"] = "GEMINI_API_KEY, GEMINI_MODEL, and BASE_URL are required"
     else:
         try:
             status["gemini"] = bool(MODEL_CLIENT.models.list())
