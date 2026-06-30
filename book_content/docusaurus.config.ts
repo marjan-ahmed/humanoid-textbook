@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const siteUrl = process.env.DOCUSAURUS_SITE_URL ?? 'https://marjan-ahmed.github.io';
 const siteBaseUrl = process.env.DOCUSAURUS_BASE_URL ?? '/humanoid-textbook/';
-const chatkitApiUrl = process.env.DOCUSAURUS_CHATKIT_API_URL ?? 'https://humanoid-textbook-roan.vercel.app/chatkit';
+const chatkitApiUrl = process.env.DOCUSAURUS_CHATKIT_API_URL ?? 'https://humanoid-textbook-zeta.vercel.app/chatkit';
 const chatkitDomainKey = process.env.DOCUSAURUS_CHATKIT_DOMAIN_KEY ?? 'domain_pk_6a42fec5544c81978c33e5ab4a2965850d8e66366255993f';
 
 const config: Config = {
