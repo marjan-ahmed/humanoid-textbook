@@ -209,27 +209,33 @@
 
 @media (max-width: 640px) {
   .panel {
-    border-radius: 1.1rem;
-    left: 0.75rem;
-    right: 0.75rem;
-    width: auto;
-  }
-
-  .panelHeader {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .panelActions {
+    border-radius: 1rem;
+    bottom: 0;
+    left: 0;
+    max-height: 85vh;
+    right: 0;
+    top: auto;
     width: 100%;
   }
 
-  .panelActions button {
-    flex: 1;
+  .panelHeader {
+    padding: 0.85rem 1rem 0.75rem;
   }
 
   .chatFrame {
-    min-height: 24rem;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .trigger {
+    bottom: 1.25rem;
+    right: 1.25rem;
+    height: 3.6rem;
+    width: 3.6rem;
+  }
+
+  .triggerGlyph {
+    font-size: 0.9rem;
   }
 }
 
