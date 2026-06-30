@@ -189,11 +189,6 @@ export default function ChatAssistant() {
                 <button type="button" onClick={() => setIsOpen(false)}>Close</button>
               </div>
             </header>
-            <div className={styles.panelMeta}>
-              <span>Qdrant retrieval</span>
-              <span>Groq responses</span>
-              <span>Course citations</span>
-            </div>
             {errorMessage && (
               <div style={{background:'rgba(120,41,28,0.34)',borderBottom:'1px solid rgba(233,149,124,0.24)',color:'#f7f1e7',padding:'0.85rem 1rem'}}>
                 <strong style={{display:'block',fontSize:'0.82rem',letterSpacing:'0.06em',marginBottom:'0.25rem',textTransform:'uppercase'}}>Chat unavailable</strong>
