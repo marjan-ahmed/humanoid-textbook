@@ -72,17 +72,17 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8000
 - `COHERE_API_KEY`
 - `QDRANT_URL`
 - `QDRANT_API_KEY`
-- `GEMINI_API_KEY`
+- `GROQ_API_KEY`
 - `BASE_URL`
-- `GEMINI_MODEL`
+- `GROQ_MODEL`
 
-Typical Gemini-compatible values:
+Groq values:
 
-- `BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/`
-- `GEMINI_MODEL=gemini-2.5-flash`
+- `BASE_URL=https://api.groq.com/openai/v1`
+- `GROQ_MODEL=llama-3.3-70b-versatile`
 
 ## Deployment Notes
 
 - Render / Railway root directory for the backend should be `backend`.
 - Vercel backend config exists in `backend/vercel.json` and `backend/pyproject.toml`.
-- The current deployed backend is reachable, but Gemini is quota-limited and may return `429 RESOURCE_EXHAUSTED` until Google quota is fixed.
+- The backend uses Groq for chat inference (free tier, no daily quota limits).
