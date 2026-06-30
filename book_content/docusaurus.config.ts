@@ -4,12 +4,13 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const siteUrl = process.env.DOCUSAURUS_SITE_URL ?? 'https://marjan-ahmed.github.io';
 const siteBaseUrl = process.env.DOCUSAURUS_BASE_URL ?? '/humanoid-textbook/';
-const chatkitApiUrl = process.env.DOCUSAURUS_CHATKIT_API_URL ?? '';
+const chatkitApiUrl = process.env.DOCUSAURUS_CHATKIT_API_URL ?? 'https://humanoid-textbook-zeta.vercel.app/chatkit';
+const chatkitDomainKey = process.env.DOCUSAURUS_CHATKIT_DOMAIN_KEY ?? 'domain_pk_6a42fec5544c81978c33e5ab4a2965850d8e66366255993f';
 
 const config: Config = {
   title: 'Physical AI & Humanoid Robotics Textbook',
   tagline: 'An AI-native textbook for building embodied intelligence from ROS 2 to autonomous humanoids.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
 
   future: {
     v4: true,
@@ -24,6 +25,8 @@ const config: Config = {
   projectName: 'humanoid-textbook',
 
   onBrokenLinks: 'throw',
+
+  plugins: [],
 
   stylesheets: [
     {
@@ -42,6 +45,7 @@ const config: Config = {
   ],
   customFields: {
     chatkitApiUrl,
+    chatkitDomainKey,
   },
   i18n: {
     defaultLocale: 'en',
@@ -162,6 +166,8 @@ const config: Config = {
         },
         {to: '/docs/foundations/physical-ai-and-embodiment', label: 'Foundations', position: 'left'},
         {to: '/docs/capstone/autonomous-humanoid', label: 'Capstone Studio', position: 'left'},
+        {to: '/signin', label: 'Sign In', position: 'right', className: 'navbar__auth-item'},
+        {to: '/signup', label: 'Sign Up', position: 'right', className: 'navbar__cta navbar__auth-item'},
         {
           href: 'https://github.com/marjan-ahmed/humanoid-textbook',
           label: 'Source',

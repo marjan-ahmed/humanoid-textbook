@@ -1,0 +1,30 @@
+.button {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--book-muted, #5f5a52);
+  cursor: pointer;
+  display: inline-flex;
+  padding: 0.2rem;
+  transition: color 0.18s ease;
+}
+
+.button:hover {
+  color: var(--book-accent, #8a6429);
+}
+
+.active {
+  color: var(--book-accent, #8a6429);
+}
+
+[data-theme='dark'] .button {
+  color: rgba(245, 241, 232, 0.4);
+}
+
+[data-theme='dark'] .button:hover {
+  color: #c6773d;
+}
+
+[data-theme='dark'] .active {
+  color: #c6773d;
+}

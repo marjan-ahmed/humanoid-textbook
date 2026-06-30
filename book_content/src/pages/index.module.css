@@ -32,16 +32,16 @@
 }
 
 .blueprint {
-  background: #101820;
+  align-self: center;
+  background: #0c1218;
   border-right: 1px solid var(--premium-line);
-  min-height: 650px;
   overflow: hidden;
   padding: clamp(1rem, 3vw, 2rem);
   position: relative;
 }
 
 .blueprint::before {
-  border: 1px solid rgba(159, 185, 204, 0.32);
+  border: 1px solid rgba(159, 185, 204, 0.22);
   content: '';
   inset: clamp(1rem, 3vw, 2rem);
   pointer-events: none;
@@ -49,7 +49,7 @@
 }
 
 .blueprint::after {
-  background: rgba(198, 119, 61, 0.18);
+  background: rgba(198, 119, 61, 0.15);
   bottom: 2rem;
   content: '';
   height: 34%;
@@ -68,32 +68,154 @@
 }
 
 .gridLines line {
-  stroke: rgba(159, 185, 204, 0.14);
+  stroke: rgba(159, 185, 204, 0.1);
   stroke-width: 1;
 }
 
 .robotLines circle,
-.robotLines path {
+.robotLines path,
+.robotLines line,
+.robotLines rect,
+.robotLines ellipse {
   fill: none;
-  stroke: #edf4f8;
+  stroke: #c8d6e0;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 5;
+  stroke-width: 2.5;
 }
 
-.callouts path {
+.robotLines .eyeGlow {
+  fill: #6dd5fa;
+  stroke: #6dd5fa;
+  stroke-width: 1.5;
+  filter: url(#glow);
+  animation: eyePulse 3s ease-in-out infinite;
+}
+
+.robotLines .antennaPulse {
+  fill: #c6773d;
+  stroke: #c6773d;
+  stroke-width: 1;
+  filter: url(#glow);
+  animation: antennaBlink 2s ease-in-out infinite;
+}
+
+.robotLines .chestReactor {
   fill: none;
-  stroke: var(--premium-copper);
-  stroke-width: 3;
+  stroke: #c6773d;
+  stroke-width: 1.5;
+  filter: url(#softGlow);
+  animation: reactorPulse 4s ease-in-out infinite;
+}
+
+.robotLines .coreGlow {
+  fill: #c6773d;
+  stroke: none;
+  filter: url(#softGlow);
+  animation: coreGlow 3s ease-in-out infinite;
+}
+
+.robotLines .sensorDot {
+  fill: #6dd5fa;
+  stroke: none;
+  animation: sensorBlink 2.5s ease-in-out infinite;
+}
+
+.circuitTraces path {
+  fill: none;
+  stroke: rgba(198, 119, 61, 0.5);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  animation: traceFlow 2s linear infinite;
+}
+
+.circuitTraces circle {
+  fill: #c6773d;
+  stroke: none;
+  animation: traceNode 2s ease-in-out infinite;
+}
+
+.scanLine {
+  fill: url(#scanLine);
+  opacity: 0;
+  animation: scanDown 5s ease-in-out infinite;
 }
 
 .callouts text {
-  fill: #edf4f8;
+  fill: #c8d6e0;
   font-family: var(--ifm-font-family-monospace);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.callouts .calloutSub {
+  fill: rgba(200, 214, 224, 0.5);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.particles circle {
+  fill: #c6773d;
+  animation: particleDrift 3s ease-in-out infinite;
+}
+
+.particles circle:nth-child(2) { animation-delay: 0.5s; }
+.particles circle:nth-child(3) { animation-delay: 1s; }
+.particles circle:nth-child(4) { animation-delay: 1.5s; }
+.particles circle:nth-child(5) { animation-delay: 2s; }
+.particles circle:nth-child(6) { animation-delay: 0.3s; }
+.particles circle:nth-child(7) { animation-delay: 0.8s; }
+.particles circle:nth-child(8) { animation-delay: 1.3s; }
+.particles circle:nth-child(9) { animation-delay: 1.8s; }
+
+@keyframes eyePulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes antennaBlink {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes reactorPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes coreGlow {
+  0%, 100% { opacity: 0.5; r: 5; }
+  50% { opacity: 1; r: 7; }
+}
+
+@keyframes sensorBlink {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes traceFlow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -20; }
+}
+
+@keyframes traceNode {
+  0%, 100% { r: 3; opacity: 0.6; }
+  50% { r: 5; opacity: 1; }
+}
+
+@keyframes scanDown {
+  0% { opacity: 0; transform: translateY(-100%); }
+  10% { opacity: 0.3; }
+  90% { opacity: 0.3; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+@keyframes particleDrift {
+  0%, 100% { opacity: 0.3; transform: translateX(0); }
+  50% { opacity: 0.8; transform: translateX(8px); }
 }
 
 .blueprintPlate {
@@ -162,7 +284,7 @@
 }
 
 .hero h1 {
-  font-size: clamp(3rem, 6.1vw, 6.25rem);
+  font-size: clamp(2.2rem, 4.5vw, 4.5rem);
   max-width: 1050px;
 }
 
@@ -602,5 +724,17 @@
   .primaryAction:hover,
   .moduleCard:hover {
     transform: none;
+  }
+
+  .eyeGlow,
+  .antennaPulse,
+  .chestReactor,
+  .coreGlow,
+  .sensorDot,
+  .circuitTraces path,
+  .circuitTraces circle,
+  .scanLine,
+  .particles circle {
+    animation: none !important;
   }
 }

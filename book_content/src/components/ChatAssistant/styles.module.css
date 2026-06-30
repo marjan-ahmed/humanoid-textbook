@@ -6,6 +6,7 @@
 }
 
 .trigger,
+.selectionTrigger,
 .backdrop,
 .panel,
 .panel * {
@@ -70,7 +71,7 @@
   overflow: hidden;
   position: fixed;
   right: 1.5rem;
-  width: min(27rem, calc(100vw - 1.5rem));
+  width: min(24rem, calc(100vw - 1.5rem));
 }
 
 .panelHeader {
@@ -115,6 +116,24 @@
 }
 
 .panelActions button:hover {
+  background: rgba(247, 241, 231, 0.12);
+}
+
+.closeIcon {
+  align-items: center;
+  background: rgba(247, 241, 231, 0.06);
+  border: 1px solid rgba(247, 241, 231, 0.14);
+  border-radius: 999px;
+  color: #f7f1e7;
+  cursor: pointer;
+  display: inline-flex;
+  height: 2.4rem;
+  justify-content: center;
+  padding: 0;
+  width: 2.4rem;
+}
+
+.closeIcon:hover {
   background: rgba(247, 241, 231, 0.12);
 }
 
@@ -180,7 +199,7 @@
     bottom: 1rem;
     max-height: calc(100vh - 2rem);
     right: 1rem;
-    width: min(27rem, calc(100vw - 1rem));
+    width: min(24rem, calc(100vw - 1rem));
   }
 
   .trigger {
@@ -191,27 +210,101 @@
 
 @media (max-width: 640px) {
   .panel {
-    border-radius: 1.1rem;
+    border-radius: 1rem;
+    bottom: 5rem;
     left: 0.75rem;
+    max-height: calc(100vh - 7rem);
     right: 0.75rem;
     width: auto;
   }
 
-  .panelHeader {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .panelActions {
-    width: 100%;
-  }
-
-  .panelActions button {
-    flex: 1;
-  }
-
   .chatFrame {
-    min-height: 24rem;
+    min-height: 20rem;
+  }
+
+  .trigger {
+    bottom: 1.25rem;
+    right: 1.25rem;
+    height: 3.6rem;
+    width: 3.6rem;
   }
 }
 
+.selectionTrigger {
+  align-items: center;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(241, 201, 145, 0.28), transparent 46%),
+    linear-gradient(145deg, #2a1f17 0%, #8f6226 100%);
+  border: 1px solid rgba(232, 211, 177, 0.3);
+  border-radius: 999px;
+  bottom: 6.5rem;
+  box-shadow: 0 18px 42px rgba(16, 10, 5, 0.3);
+  color: #f7f1e7;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 700;
+  gap: 0.45rem;
+  letter-spacing: 0.04em;
+  padding: 0.8rem 1rem;
+  position: fixed;
+  right: 1.5rem;
+  text-transform: uppercase;
+}
+
+.selectionBanner {
+  align-items: flex-start;
+  background: rgba(185, 125, 52, 0.14);
+  border-bottom: 1px solid rgba(209, 179, 131, 0.16);
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+}
+
+.selectionBanner strong {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+}
+
+.selectionBanner p {
+  color: rgba(247, 241, 231, 0.84);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.selectionBanner button {
+  background: rgba(247, 241, 231, 0.08);
+  border: 1px solid rgba(247, 241, 231, 0.14);
+  border-radius: 999px;
+  color: #f7f1e7;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.5rem 0.8rem;
+}
+
+@media (max-width: 996px) {
+  .selectionTrigger {
+    bottom: 5.8rem;
+    right: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .selectionTrigger {
+    bottom: 5.9rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .selectionBanner {
+    flex-direction: column;
+  }
+}
