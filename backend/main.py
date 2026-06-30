@@ -37,13 +37,17 @@ from chatkit.types import (
 )
 from cohere import ClientV2
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
+
+# JWT verification imports
+import jwt
+import httpx
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -593,6 +597,110 @@ async def debug_threads() -> JSONResponse:
             "items": items,
         }
     return JSONResponse(result)
+
+
+# JWT Verification for Better Auth
+BETTER_AUTH_URL = os.getenv("BETTER_AUTH_URL", "http://localhost:3000")
+_jwks_cache: dict[str, Any] = {}
+_jwks_cache_time: float = 0
+
+
+async def get_jwks() -> dict[str, Any]:
+    """Fetch JWKS from Better Auth server with caching."""
+    global _jwks_cache, _jwks_cache_time
+    import time
+
+    # Cache for 1 hour
+    if _jwks_cache and (time.time() - _jwks_cache_time) < 3600:
+        return _jwks_cache
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BETTER_AUTH_URL}/api/auth/jwks")
+        response.raise_for_status()
+        _jwks_cache = response.json()
+        _jwks_cache_time = time.time()
+        return _jwks_cache
+
+
+def get_signing_key(jwks: dict[str, Any], kid: str) -> str:
+    """Extract signing key from JWKS."""
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            # For EdDSA keys, we need the raw key
+            import base64
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+            # Decode the JWK key
+            x = base64.urlsafe_b64decode(key["x"] + "==")
+            public_key = Ed25519PublicKey.from_public_bytes(x)
+            return public_key
+    raise ValueError("Key not found")
+
+
+async def verify_token(token: str) -> dict[str, Any]:
+    """Verify JWT token from Better Auth."""
+    try:
+        # Get unverified header to find key ID
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+
+        if not kid:
+            raise HTTPException(status_code=401, detail="Invalid token: missing kid")
+
+        # Get JWKS and find the key
+        jwks = await get_jwks()
+        public_key = get_signing_key(jwks, kid)
+
+        # Verify the token
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=["EdDSA"],
+            audience=BETTER_AUTH_URL,
+            options={"verify_exp": True},
+        )
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+
+
+async def get_current_user(request: Request) -> dict[str, Any]:
+    """Dependency to get current authenticated user from JWT."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+
+    token = auth_header.split(" ")[1]
+    return await verify_token(token)
+
+
+@app.get("/api/auth/me")
+async def get_me(user: dict[str, Any] = Depends(get_current_user)) -> JSONResponse:
+    """Get current authenticated user info."""
+    return JSONResponse({
+        "user": {
+            "id": user.get("sub"),
+            "email": user.get("email"),
+            "name": user.get("name"),
+        }
+    })
+
+
+@app.get("/api/auth/verify")
+async def verify_auth(request: Request) -> JSONResponse:
+    """Verify if the user is authenticated."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return JSONResponse({"authenticated": False}, status_code=401)
+
+    try:
+        token = auth_header.split(" ")[1]
+        user = await verify_token(token)
+        return JSONResponse({"authenticated": True, "user_id": user.get("sub")})
+    except HTTPException:
+        return JSONResponse({"authenticated": False}, status_code=401)
 
 
 static_dir = resolve_static_dir()

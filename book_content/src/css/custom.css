@@ -294,6 +294,26 @@ a {
   text-decoration: none;
 }
 
+.navbar__cta {
+  background: var(--nav-copper) !important;
+  border: 1px solid var(--nav-copper) !important;
+  color: var(--nav-shell) !important;
+  font-family: var(--ifm-font-family-monospace) !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  padding: 0.55rem 0.95rem !important;
+  text-transform: uppercase !important;
+  transition: all 0.18s ease !important;
+}
+
+.navbar__cta:hover {
+  background: transparent !important;
+  color: var(--nav-copper) !important;
+  border-color: var(--nav-copper) !important;
+  text-decoration: none !important;
+}
+
 .navbar-sidebar,
 .navbar-sidebar__brand,
 .navbar-sidebar__items {

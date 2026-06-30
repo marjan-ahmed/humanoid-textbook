@@ -26,6 +26,8 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
+  plugins: [],
+
   stylesheets: [
     {
       href: 'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap',
@@ -164,6 +166,8 @@ const config: Config = {
         },
         {to: '/docs/foundations/physical-ai-and-embodiment', label: 'Foundations', position: 'left'},
         {to: '/docs/capstone/autonomous-humanoid', label: 'Capstone Studio', position: 'left'},
+        {to: '/signin', label: 'Sign In', position: 'right', className: 'navbar__auth-item'},
+        {to: '/signup', label: 'Sign Up', position: 'right', className: 'navbar__cta navbar__auth-item'},
         {
           href: 'https://github.com/marjan-ahmed/humanoid-textbook',
           label: 'Source',
